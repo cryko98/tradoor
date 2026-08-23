@@ -55,9 +55,7 @@ function el(tag, className, text) {
   if (text !== undefined) e.textContent = text;
   return e;
 }
-function markFor(p, size) {
-  var wrap = el('span', 'coin-mark');
-  if (size) { wrap.style.width = wrap.style.height = size + 'px'; }
+function fillMark(wrap, p) {
   if (p.image) {
     var img = document.createElement('img');
     img.src = p.image; img.alt = ''; img.loading = 'lazy';
@@ -67,6 +65,16 @@ function markFor(p, size) {
     wrap.textContent = p.symbol.slice(0, 2);
   }
   wrap.style.background = 'hsl(' + hueOf(p.address || p.symbol) + ',58%,52%)';
+  return wrap;
+}
+
+/* every logo on the page is a door to that pair's live chart */
+function markFor(p, size) {
+  var wrap = el('span', 'coin-mark coin-mark--btn');
+  if (size) { wrap.style.width = wrap.style.height = size + 'px'; }
+  fillMark(wrap, p);
+  wrap.title = 'Open the ' + p.symbol + ' chart';
+  wrap.addEventListener('click', function (e) { e.stopPropagation(); openChart(p); });
   return wrap;
 }
 
@@ -160,6 +168,81 @@ function drawArea(canvas, data, opts) {
   var lx = X(data.length - 1), ly = Y(data[data.length - 1]);
   ctx.beginPath(); ctx.arc(lx, ly, 2.8, 0, 6.2832); ctx.fillStyle = color; ctx.fill();
   ctx.beginPath(); ctx.arc(lx, ly, 6, 0, 6.2832); ctx.fillStyle = hexA(color, .18); ctx.fill();
+}
+
+/* ==========================================================================
+   CHART MODAL — the pair's own DEX Screener chart, embedded
+========================================================================== */
+var chartOpen = null;
+
+function dexUrl(p) {
+  return 'https://dexscreener.com/solana/' + (p.pairAddress || p.address);
+}
+/* keep this minimal: the embed resolves reliably with these four and starts
+   hanging on "Loading pair…" once the query string grows */
+function embedUrl(p) {
+  return dexUrl(p) + '?embed=1&theme=dark&trades=0&info=0';
+}
+
+function mountChart(p) {
+  var body = $('#chartBody');
+  var old = body.querySelector('iframe');
+  if (old) old.remove();
+  var frame = document.createElement('iframe');
+  frame.src = embedUrl(p);
+  frame.title = p.symbol + ' chart on DEX Screener';
+  frame.loading = 'eager';
+  frame.allow = 'clipboard-write';
+  frame.referrerPolicy = 'no-referrer-when-downgrade';
+  body.appendChild(frame);
+}
+
+function openChart(coin) {
+  /* prefer the live board entry: it carries the current price and the pair id */
+  var p = (coin && M.byAddress[coin.address]) || coin;
+  if (!p || !p.address) return;
+  chartOpen = p;
+
+  var modal = $('#chartModal');
+  var mark = $('#chartMark');
+  mark.innerHTML = '';
+  mark.removeAttribute('style');
+  fillMark(mark, p);
+
+  $('#chartSymbol').textContent = '$' + p.symbol;
+  $('#chartName').textContent = (p.name || '') + ' · ' + short(p.address, 6);
+  $('#chartOut').href = p.url || dexUrl(p);
+
+  paintChartHead();
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+
+  /* the embed measures its container as it boots, so it only goes in once the
+     modal is actually laid out — inside a display:none box it hangs forever */
+  var old = $('#chartBody').querySelector('iframe');
+  if (old) old.remove();
+  setTimeout(function () { if (chartOpen === p) mountChart(p); }, 60);
+}
+
+function paintChartHead() {
+  if (!chartOpen) return;
+  var p = M.byAddress[chartOpen.address] || chartOpen;
+  $('#chartPrice').textContent = p.priceUsd ? '$' + A.fmtPrice(p.priceUsd) : '—';
+  var ch = $('#chartChange');
+  if (p.ch) {
+    ch.textContent = '5m ' + A.sgn(p.ch.m5) + ' · 1h ' + A.sgn(p.ch.h1) + ' · 24h ' + A.sgn(p.ch.h24);
+    ch.className = cls(p.ch.m5);
+  }
+}
+
+function closeChart() {
+  var modal = $('#chartModal');
+  if (modal.hidden) return;
+  modal.hidden = true;
+  chartOpen = null;
+  document.body.style.overflow = '';
+  var frame = $('#chartBody').querySelector('iframe');
+  if (frame) frame.remove();          // stop the embed working in the background
 }
 
 /* ==========================================================================
@@ -663,6 +746,7 @@ function renderAll() {
   renderHist();
   renderTicker();
   renderArchive();
+  paintChartHead();
 }
 
 function cycle() {
@@ -737,6 +821,21 @@ function wire() {
     if (btn.id === 'walletBtn') { copy($('#walletAddr').textContent, 'Wallet'); return; }
     if (!CONFIG.CONTRACT) { toast('Contract address coming soon'); return; }
     copy(CONFIG.CONTRACT, 'Contract');
+  });
+
+  /* chart modal */
+  $('#focusChartBtn').addEventListener('click', function () {
+    var p = M.byAddress[focusAddr];
+    if (p) openChart(p);
+  });
+  $$('#chartModal [data-close]').forEach(function (b) {
+    b.addEventListener('click', closeChart);
+  });
+  $('#chartRetry').addEventListener('click', function () {
+    if (chartOpen) mountChart(M.byAddress[chartOpen.address] || chartOpen);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeChart();
   });
 
   $$('#scanTabs button').forEach(function (b) {

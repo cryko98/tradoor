@@ -549,6 +549,79 @@ p { margin: 0 0 1em; }
 .footer__bottom b { color: var(--dim); }
 .footer__bottom span { font-family: var(--mono); font-size: 11px; color: var(--dim2); white-space: nowrap; }
 
+/* ------------------------------------------------------------ chart modal */
+.chart-btn {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; padding: 4px 9px;
+  border: 1px solid var(--line2); border-radius: 7px; font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--dim); transition: .16s;
+}
+.chart-btn svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.chart-btn:hover { color: var(--mint); border-color: var(--mint); background: var(--mint-dim); }
+
+.coin-mark--btn { cursor: pointer; transition: box-shadow .16s, transform .16s; }
+.coin-mark--btn:hover { box-shadow: 0 0 0 2px var(--mint); transform: scale(1.06); }
+
+.modal {
+  position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; padding: 20px;
+}
+.modal[hidden] { display: none; }
+.modal__backdrop { position: absolute; inset: 0; background: rgba(3,5,9,.78); backdrop-filter: blur(4px); }
+.modal__panel {
+  position: relative; width: min(1120px, 100%); height: min(760px, 88vh);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--line2); border-radius: 14px;
+  box-shadow: 0 40px 120px rgba(0,0,0,.6);
+  animation: modalIn .22s cubic-bezier(.2,.7,.3,1) both;
+}
+@keyframes modalIn { from { opacity: 0; transform: translateY(12px) scale(.99); } }
+.modal__head {
+  display: flex; align-items: center; gap: 12px; flex: none; padding: 12px 14px;
+  border-bottom: 1px solid var(--line); background: var(--panel2);
+}
+.modal__mark {
+  width: 34px; height: 34px; border-radius: 9px; overflow: hidden; flex: none;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #05130E;
+}
+.modal__mark img { width: 100%; height: 100%; object-fit: cover; }
+.modal__id { min-width: 0; }
+.modal__id b { display: block; font-family: var(--mono); font-size: 14px; font-weight: 500; }
+.modal__id i {
+  display: block; font-style: normal; font-size: 11px; color: var(--dim2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw;
+}
+.modal__price { margin-left: auto; text-align: right; font-family: var(--mono); }
+.modal__price b { display: block; font-size: 14px; font-weight: 500; }
+.modal__price i { font-style: normal; font-size: 11px; color: var(--dim); }
+.modal__out {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; color: var(--dim);
+  border: 1px solid var(--line2); border-radius: 7px; padding: 6px 10px; transition: .16s; white-space: nowrap;
+}
+.modal__out:hover { color: var(--mint); border-color: var(--mint); }
+.modal__close {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--line); color: var(--dim); flex: none; transition: .16s;
+}
+.modal__close svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.modal__close:hover { color: var(--ink); border-color: var(--line2); background: var(--raise); }
+.modal__body { position: relative; flex: 1; min-height: 0; background: #0B0F17; }
+.modal__body iframe { position: relative; z-index: 1; width: 100%; height: 100%; border: 0; display: block; }
+.modal__fallback {
+  position: absolute; inset: 0; display: grid; align-content: center; justify-items: center;
+  gap: 6px; padding: 30px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--dim);
+}
+.modal__fallback p { margin: 0; max-width: 46ch; }
+
+@media (max-width: 640px) {
+  .modal { padding: 0; }
+  .modal__panel { width: 100%; height: 100%; border-radius: 0; border: 0; }
+  .modal__head { flex-wrap: wrap; row-gap: 8px; padding: 10px 12px; }
+  .modal__price { font-size: 12px; }
+  .modal__out { order: 5; }
+  .modal__id i { max-width: 55vw; }
+  .chart-btn span { display: none; }
+  .chart-btn { padding: 4px 7px; }
+}
+
 /* ------------------------------------------------------------------ toast */
 .toast {
   position: fixed; left: 50%; bottom: 26px; translate: -50% 20px; z-index: 120;
