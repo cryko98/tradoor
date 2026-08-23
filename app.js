@@ -425,7 +425,11 @@ function renderPortfolio(st) {
     tr.appendChild(tdPnl);
 
     var tdM = el('td', 'c-stop'), m = el('div', 'mgmt');
-    m.appendChild(el('span', pos.tp1 ? 'on' : '', 'TP1'));
+    var tgt = el('span', pnlPct * 100 >= (pos.targetPct || 0) ? 'on' : '',
+      '+' + (pos.targetPct || 0).toFixed(0) + '%');
+    tgt.title = 'target ≈ +' + (pos.targetSol || 0).toFixed(2) + ' SOL net of fees';
+    m.appendChild(tgt);
+    m.appendChild(el('span', pos.scaled ? 'on' : '', 'SCALE'));
     m.appendChild(el('span', pos.trail ? 'on' : '', 'TRAIL'));
     var stop = el('span', '', 'STOP');
     stop.title = 'stop loss at $' + A.fmtPrice(pos.entryUsd * (1 + A.RULES.STOP_PCT / 100));

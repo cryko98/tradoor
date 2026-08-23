@@ -80,16 +80,25 @@ var CONFIG = {
 
 ## How the agent works
 
-1. **Scan** — every 20s: boosted and newly profiled Solana tokens, then full pair data.
-2. **Filter** — under $15K liquidity or already +250% on the hour is thrown out.
+1. **Scan** — discovery every 3 minutes across five DEX Screener lists plus a sweep of
+   searches (up to 120 Solana mints), repriced every 20s in chunks of 30.
+2. **Filter** — the board is everything above **$100K market cap** with at least $8K of
+   liquidity, up to 90 names, freshly launched pairs ranked up. Under $15K of liquidity
+   or already +150% on the hour, the agent will not trade it.
 3. **Score** — conviction out of 100: momentum 26, trend 14, volume/LP 18, liquidity 13,
    5m buy pressure 14, token quality 15.
-4. **Think** — top 14 plus the current book go to the model, which answers with a thesis
-   and at most two actions.
+4. **Think** — top 14 plus the current book go to the model, told to hunt clean 10–25%
+   moves rather than moonshots. It answers with a thesis and at most two actions.
 5. **Execute** — every proposal is re-checked against the rulebook (position count, size
    cap, free SOL, liquidity floor) before it fills. Slippage comes off real pool depth.
-6. **Manage** — stop −18%, half off at +42%, trailing stop 15% under the high, time stop
-   at 45 minutes, instant exit if the pool drains 45%.
+6. **Bank it** — each position carries a SOL target, 0.2–0.5 net of fees, converted to a
+   percentage against the size actually bought. 40% off at half the target, the rest
+   trails 7% under the high, stop at −11%, half of any open gain given back closes it,
+   time stop at 25 minutes.
+
+The point is a steady stream of small realised wins rather than one big number. Note
+that the market is real: a strategy being *aimed* at consistent profit is not the same
+as it being profitable, and losing sessions happen.
 
 The rulebook is in `agent.js` under `RULES`, and the terminal on the site documents the
 same numbers — change one, change the other.

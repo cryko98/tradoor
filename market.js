@@ -15,6 +15,18 @@ var DS = 'https://api.dexscreener.com';
 var SOL_MINT = 'So11111111111111111111111111111111111111112';
 var MAX_POINTS = 720;
 
+/* the board floor — same numbers the edge function uses */
+var MIN_MCAP = 100000;
+var MAX_MCAP = 80000000;
+var MIN_LIQ = 8000;
+var MAX_PAIRS = 90;
+var EXCLUDE = {};
+[SOL_MINT,
+ 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+ 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+ 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So',
+ 'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn'].forEach(function (a) { EXCLUDE[a] = 1; });
+
 var Market = {
   pairs: [],
   byAddress: {},
@@ -86,10 +98,21 @@ function normalise(p, boosts) {
 
 function rank(p) {
   var turnover = p.liqUsd > 0 ? p.vol.h1 / p.liqUsd : 0;
-  return Math.log10(1 + p.vol.h24) * 1.6
-       + Math.min(turnover, 12) * 1.1
-       + Math.max(-30, Math.min(60, p.ch.h1)) * 0.05
-       + Math.min(p.boosts, 1000) * 0.002;
+  var r = Math.log10(1 + p.vol.h24) * 1.6
+        + Math.min(turnover, 12) * 1.1
+        + Math.max(-30, Math.min(60, p.ch.h1)) * 0.05
+        + Math.min(p.boosts, 1000) * 0.002;
+  if (p.ageHours !== null) {
+    if (p.ageHours < 6) r += 2.0;
+    else if (p.ageHours < 24) r += 1.2;
+    else if (p.ageHours < 72) r += 0.5;
+  }
+  return r;
+}
+
+function eligible(p) {
+  return !EXCLUDE[p.address] && p.priceUsd > 0 &&
+    p.marketCap >= MIN_MCAP && p.marketCap <= MAX_MCAP && p.liqUsd >= MIN_LIQ;
 }
 
 /* ------------------------------------------------------- direct fallback -- */
@@ -99,24 +122,40 @@ function discoverDirect() {
   var fresh = Date.now() - Market.discovery.at < 180000;
   if (fresh && Market.discovery.addresses.length) return Promise.resolve(Market.discovery);
 
+  var soft = function (u) { return json(u).catch(function () { return null; }); };
   var lists = [
     DS + '/token-boosts/top/v1',
     DS + '/token-boosts/latest/v1',
-    DS + '/token-profiles/latest/v1'
-  ].map(function (u) { return json(u).catch(function () { return []; }); });
+    DS + '/token-profiles/latest/v1',
+    DS + '/community-takeovers/latest/v1',
+    DS + '/ads/latest/v1'
+  ].map(soft);
+  var searches = ['pump', 'bonk', 'cat', 'dog', 'meme'].map(function (q) {
+    return soft(DS + '/latest/dex/search?q=' + encodeURIComponent(q));
+  });
 
-  return Promise.all(lists).then(function (all) {
+  return Promise.all([Promise.all(lists), Promise.all(searches)]).then(function (both) {
     var seen = {}, addresses = [], boosts = {};
-    all.forEach(function (list) {
+    var add = function (a) {
+      if (!a || EXCLUDE[a] || seen[a]) return;
+      seen[a] = 1; addresses.push(a);
+    };
+    both[0].forEach(function (list) {
       (Array.isArray(list) ? list : []).forEach(function (t) {
         if (!t || t.chainId !== 'solana' || !t.tokenAddress) return;
         if (t.totalAmount) boosts[t.tokenAddress] = t.totalAmount;
-        if (seen[t.tokenAddress]) return;
-        seen[t.tokenAddress] = 1;
-        addresses.push(t.tokenAddress);
+        add(t.tokenAddress);
       });
     });
-    Market.discovery = { at: Date.now(), addresses: addresses.slice(0, 60), boosts: boosts };
+    both[1].forEach(function (res) {
+      if (!res || !Array.isArray(res.pairs)) return;
+      res.pairs.filter(function (p) {
+        return p && p.chainId === 'solana' && p.baseToken && p.priceUsd;
+      }).sort(function (a, b) {
+        return ((b.liquidity && b.liquidity.usd) || 0) - ((a.liquidity && a.liquidity.usd) || 0);
+      }).forEach(function (p) { add(p.baseToken.address); });
+    });
+    Market.discovery = { at: Date.now(), addresses: addresses.slice(0, 120), boosts: boosts };
     return Market.discovery;
   });
 }
@@ -124,7 +163,7 @@ function discoverDirect() {
 function fetchDirect() {
   return discoverDirect().then(function (d) {
     if (!d.addresses.length) throw new Error('no solana tokens discovered');
-    var groups = chunk(d.addresses, 30).slice(0, 2);
+    var groups = chunk(d.addresses, 30).slice(0, 4);
     var calls = groups.map(function (g) {
       return json(DS + '/tokens/v1/solana/' + g.join(',')).catch(function () { return []; });
     });
@@ -137,7 +176,6 @@ function fetchDirect() {
         (Array.isArray(list) ? list : []).forEach(function (p) {
           if (!p || !p.baseToken || !p.priceUsd) return;
           var liq = (p.liquidity && p.liquidity.usd) || 0;
-          if (liq < 4000) return;
           var prev = best[p.baseToken.address];
           if (!prev || liq > ((prev.liquidity && prev.liquidity.usd) || 0)) best[p.baseToken.address] = p;
         });
@@ -152,8 +190,9 @@ function fetchDirect() {
       if (deep) solUsd = parseFloat(deep.priceUsd) || 0;
 
       var pairs = Object.keys(best).map(function (k) { return normalise(best[k], d.boosts); })
+        .filter(eligible)
         .sort(function (a, b) { return rank(b) - rank(a); })
-        .slice(0, 44);
+        .slice(0, MAX_PAIRS);
 
       return { pairs: pairs, solUsd: solUsd, updatedAt: Date.now(), source: 'dexscreener-direct' };
     });

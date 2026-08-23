@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Tradoor — the memecoin agent that trades by itself</title>
-<meta name="description" content="Tradoor is an autonomous agent on Solana. It reads live DEX Screener data on trending memecoins, thinks with an LLM, and trades a 10 SOL paper wallet on its own — every decision printed as it happens." />
+<meta name="description" content="Tradoor is an autonomous agent on Solana. It reads live DEX Screener data on every trending memecoin above $100K, thinks with an LLM, and grinds a 10 SOL paper wallet 0.2 SOL at a time — every decision printed as it happens." />
 <meta name="theme-color" content="#070A10" />
 
 <link rel="icon" type="image/jpeg" href="logo.jpg" />
@@ -12,11 +12,11 @@
 
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Tradoor — the memecoin agent that trades by itself" />
-<meta property="og:description" content="Real trending Solana memecoins. Real analysis by a model. 10 SOL, no human hands." />
+<meta property="og:description" content="Real trending Solana memecoins. Real analysis by a model. Small wins, on repeat, with nobody at the keyboard." />
 <meta property="og:image" content="logo.jpg" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Tradoor — the memecoin agent that trades by itself" />
-<meta name="twitter:description" content="Real trending Solana memecoins. Real analysis by a model. 10 SOL, no human hands." />
+<meta name="twitter:description" content="Real trending Solana memecoins. Real analysis by a model. Small wins, on repeat, with nobody at the keyboard." />
 <meta name="twitter:image" content="logo.jpg" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -73,13 +73,14 @@
     <div class="hero__copy">
       <div class="eyebrow"><span class="led"></span> Autonomous agent · live Solana pairs · paper wallet</div>
       <h1 class="hero__title">
-        He trades memecoins<br />
-        <em>so you don&rsquo;t have to.</em>
+        He shows the way<br />
+        <em>to the trades that pay.</em>
       </h1>
       <p class="hero__sub">
         Tradoor watches the <b>real</b> trending Solana board — live prices, liquidity, volume and
         buy pressure straight from DEX Screener — hands the shortlist to a language model, and takes
-        the trade himself. Ten SOL, four slots, hard stops, nobody at the keyboard.
+        the trade himself. He is not hunting a hundred-x. He is hunting the next clean
+        <b>0.2 to 0.5 SOL</b>, over and over, with a stop under every one of them.
         Every thought he has is printed below while it happens.
       </p>
       <div class="hero__cta">
@@ -295,12 +296,12 @@
       <li class="step">
         <span class="step__n">01</span>
         <h3>Scan</h3>
-        <p>Every 20 seconds the board is pulled from DEX Screener: boosted and freshly profiled Solana tokens, then full pair data — price, 5m/1h/6h/24h change, volume, liquidity, market cap, buys against sells, pair age.</p>
+        <p>Boosted tokens, fresh profiles, community takeovers, promoted pairs and a sweep of searches — up to 120 Solana mints, repriced every 20 seconds: price, 5m/1h/6h/24h change, volume, liquidity, market cap, buys against sells, pair age.</p>
       </li>
       <li class="step">
         <span class="step__n">02</span>
         <h3>Filter</h3>
-        <p>Anything under $15,000 of liquidity is dropped before it is considered — you cannot sell what has no pool. Pairs already up more than 250% on the hour are dropped too. That is somebody else&rsquo;s exit.</p>
+        <p>The board is everything above <b>$100K market cap</b> with a pool deep enough to leave — up to ninety names at a time, newest first. Under $15,000 of liquidity he will not touch it, and anything already up 150% on the hour is somebody else&rsquo;s exit.</p>
       </li>
       <li class="step">
         <span class="step__n">03</span>
@@ -310,7 +311,7 @@
       <li class="step">
         <span class="step__n">04</span>
         <h3>Think</h3>
-        <p>The top fourteen go to a language model on fal.ai with the current book attached. It answers with a thesis and at most two actions. If it wants nothing, nothing happens — and that is the most common answer.</p>
+        <p>The strongest fourteen go to a language model on fal.ai with the current book attached. It is told to hunt clean 10&ndash;25% moves, not moonshots, and it answers with a thesis and at most two actions. Most of the time the answer is to sit still.</p>
       </li>
       <li class="step">
         <span class="step__n">05</span>
@@ -319,8 +320,8 @@
       </li>
       <li class="step">
         <span class="step__n">06</span>
-        <h3>Manage</h3>
-        <p>Stop at &minus;18%. Half off the table at +42%. Trailing stop 15% under the high water mark. Time stop after 45 minutes of nothing. Instant exit if the pool drains 45% below where he bought.</p>
+        <h3>Bank it</h3>
+        <p>Each position gets a SOL target — <b>0.2 to 0.5 net of fees</b> — turned into a percentage against what he actually bought. 40% comes off at half the target, the rest trails 7% under the high. Stop at &minus;11%, and if half an open gain is handed back the trade is closed.</p>
       </li>
     </ol>
 
@@ -342,11 +343,13 @@
     </div>
     <div class="rules__grid">
       <div class="rule"><b>10.000</b><span>SOL</span><i>Opening balance every session. He never gets a top-up.</i></div>
+      <div class="rule"><b>0.2&ndash;0.5</b><span>SOL</span><i>What a normal winner is worth. Net, after fees and slippage.</i></div>
       <div class="rule"><b>4</b><span>max</span><i>Concurrent positions. The fifth idea has to wait.</i></div>
       <div class="rule"><b>25%</b><span>cap</span><i>Largest slice of equity a single memecoin can take.</i></div>
-      <div class="rule"><b>&minus;18%</b><span>stop</span><i>Hard stop loss. No averaging down, ever.</i></div>
-      <div class="rule"><b>$15K</b><span>floor</span><i>Minimum pool depth. Below it, there is no exit.</i></div>
-      <div class="rule"><b>15%</b><span>trail</span><i>Trailing stop once a position is up more than 22%.</i></div>
+      <div class="rule"><b>&minus;11%</b><span>stop</span><i>Hard stop loss. No averaging down, ever.</i></div>
+      <div class="rule"><b>$100K</b><span>floor</span><i>Market cap floor for the board. Below that it is not a market.</i></div>
+      <div class="rule"><b>$15K</b><span>pool</span><i>Minimum liquidity to trade. Below it, there is no exit.</i></div>
+      <div class="rule"><b>25</b><span>min</span><i>Time stop. Dead money goes back in the pocket.</i></div>
     </div>
   </div>
 </section>
@@ -405,6 +408,10 @@
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Who decides what he buys?</span><i></i></button>
         <div class="acc__a"><p>A language model running on fal.ai. It gets the shortlist, the current positions and the free balance, and answers with a thesis plus at most two actions. Everything it proposes is then checked against a rulebook it cannot edit — position count, size cap, liquidity floor, free SOL. If the model is unavailable, the built-in scoring model takes over and the terminal says so.</p></div>
+      </div>
+      <div class="acc__item">
+        <button class="acc__q" type="button" aria-expanded="false"><span>Why such small targets?</span><i></i></button>
+        <div class="acc__a"><p>Because the alternative is holding a bag while telling yourself it is a long-term position. Each trade is sized around 2 SOL and carries a target worth <b>0.2 to 0.5 SOL net of fees</b> — a clean 10&ndash;25% move. 40% comes off at half the target so the trade cannot turn red, the rest trails. A three-x that never fills is worth less than three fifteens that do.</p></div>
       </div>
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Are the tokens on the board a recommendation?</span><i></i></button>

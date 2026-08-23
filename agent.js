@@ -13,22 +13,36 @@
 var M = global.TradoorMarket;
 
 /* --------------------------------------------------------------- rulebook */
+/* ----------------------------------------------------------------------------
+   The book is run for a steady stream of small realised wins, not for
+   moonshots. Every position carries a SOL target — 0.20 to 0.50 net after
+   fees and slippage — which is turned into a percentage against the size
+   actually bought. Half comes off early, the rest runs on a tight trail.
+---------------------------------------------------------------------------- */
 var RULES = {
-  START_SOL:    10,
-  MAX_POS:      4,
-  MIN_SIZE_PCT: 8,
-  MAX_SIZE_PCT: 25,
-  MIN_LIQ_USD:  15000,
-  STOP_PCT:    -18,
-  TP1_PCT:      42,     // bank half here
-  TRAIL_ARM:    22,     // arm the trailing stop above this
-  TRAIL_PCT:    15,     // ...and trail this far under the high water mark
-  MOON_PCT:     150,    // full exit
-  TIME_STOP_MIN: 45,    // dead money gets cut
-  RUG_LIQ_DROP: 0.45,
-  SWAP_FEE:     0.01,   // 1% router/platform fee
-  NET_FEE:      0.000005,
-  SCORE_BUY:    66
+  START_SOL:      10,
+  MAX_POS:        4,
+  MIN_SIZE_PCT:   12,
+  MAX_SIZE_PCT:   25,
+  MIN_LIQ_USD:    15000,
+
+  TARGET_SOL:     0.32,   // what a normal winner is worth, net
+  TARGET_MIN_PCT: 9,      // never take a trade for less than this move
+  TARGET_MAX_PCT: 30,     // never sit there waiting for more than this
+  SCALE_AT:       0.5,    // scale out at half the target...
+  SCALE_PORTION:  0.4,    // ...selling this much of the position
+  GIVEBACK:       0.5,    // hand back at most half of an open gain
+
+  MAX_H1:         150,    // above this the move is already somebody's exit
+  MAX_M5:         40,     // never buy into a vertical candle
+  STOP_PCT:      -11,
+  TRAIL_PCT:      7,      // trail under the high water mark once scaled
+  TIME_STOP_MIN:  25,     // dead money gets recycled
+  RUG_LIQ_DROP:   0.40,
+
+  SWAP_FEE:       0.01,   // 1% router/platform fee
+  NET_FEE:        0.000005,
+  SCORE_BUY:      64
 };
 
 var LLM_INTERVAL_MS = 45000;
@@ -134,7 +148,8 @@ Agent.score = function (p) {
   var flags = [];
 
   if (p.liqUsd < RULES.MIN_LIQ_USD) { score -= 26; flags.push('liquidity ' + fmtUsd(p.liqUsd) + ' under the floor'); }
-  if (p.ch.h1 > 250)                { score -= 20; flags.push('1h already ' + sgn(p.ch.h1, 0) + ' — late'); }
+  if (p.ch.h1 > 150)                { score -= 20; flags.push('1h already ' + sgn(p.ch.h1, 0) + ' — late to it'); }
+  if (p.ch.m5 > 40)                 { score -= 12; flags.push('5m candle is vertical — no entry here'); }
   if (p.ch.m5 <= 0)                 { score -= 12; flags.push('no 5m impulse'); }
   if (p.ch.h24 < -55)               { score -= 10; flags.push('24h ' + sgn(p.ch.h24, 0)); }
   if (p.ageHours !== null && p.ageHours < 0.25) { score -= 12; flags.push('under 15 minutes old'); }
@@ -143,6 +158,20 @@ Agent.score = function (p) {
 
   return { score: clamp(score, 0, 100), f: f, flags: flags, turnover: turnover, pressure: buyPressure(p) };
 };
+
+/* the hard gate. Scoring can argue about how good a setup is; this decides
+   whether it is allowed at all, for the model and the built-in brain alike.
+   Returns null when the pair is tradeable, or the reason it is not. */
+function veto(p) {
+  if (p.liqUsd < RULES.MIN_LIQ_USD)
+    return 'liquidity ' + fmtUsd(p.liqUsd) + ' is under the ' + fmtUsd(RULES.MIN_LIQ_USD) + ' floor';
+  if (p.ch.h1 > RULES.MAX_H1)
+    return '1h already ' + sgn(p.ch.h1, 0) + ' — that is somebody else’s exit';
+  if (p.ch.m5 > RULES.MAX_M5)
+    return '5m candle is vertical (' + sgn(p.ch.m5, 0) + ') — not chasing it';
+  return null;
+}
+Agent.veto = veto;
 
 Agent.ranked = function () {
   var out = M.pairs.map(function (p) {
@@ -215,11 +244,20 @@ function buy(p, sizeSol, reason, conviction) {
   Agent.cash -= spend;
   Agent.fees += RULES.NET_FEE + priority + sizeSol * RULES.SWAP_FEE;
 
+  /* what it costs to get back out: the router fee plus the slippage the exit
+     will eat. The SOL target is set on top of that, so the number the tape
+     prints is what actually lands in the wallet. */
+  var exitCost = RULES.SWAP_FEE * 100 + imp;
+  var targetPct = clamp((RULES.TARGET_SOL / sizeSol) * 100 + exitCost,
+                        RULES.TARGET_MIN_PCT, RULES.TARGET_MAX_PCT);
+
   var pos = {
     address: p.address, symbol: p.symbol, name: p.name, image: p.image, url: p.url,
     tokens: tokens, costSol: sizeSol, entryUsd: sizeUsd / tokens, lastUsd: p.priceUsd,
-    entryAt: Date.now(), peakUsd: p.priceUsd, tp1: false, trail: false,
-    liqAtEntry: p.liqUsd, reason: reason || '', conviction: conviction || 0
+    entryAt: Date.now(), peakUsd: p.priceUsd, peakPct: 0, scaled: false, trail: false,
+    liqAtEntry: p.liqUsd, reason: reason || '', conviction: conviction || 0,
+    exitCost: exitCost, targetPct: targetPct,
+    targetSol: sizeSol * (targetPct - exitCost) / 100
   };
   Agent.positions.push(pos);
 
@@ -231,6 +269,9 @@ function buy(p, sizeSol, reason, conviction) {
 
   log('exec', 'BUY  ' + sizeSol.toFixed(3) + ' SOL → ' + fmtAmt(tokens) + ' ' + p.symbol +
     ' @ ' + fmtPrice(fillUsd) + ' · impact ' + imp.toFixed(2) + '% · ' + tx.route, p.symbol);
+  log('manage', 'PLAN  ' + p.symbol + ' target +' + targetPct.toFixed(1) + '% ≈ +' +
+    pos.targetSol.toFixed(2) + ' SOL net · scale ' + Math.round(RULES.SCALE_PORTION * 100) +
+    '% at +' + (targetPct * RULES.SCALE_AT).toFixed(1) + '% · stop ' + RULES.STOP_PCT + '%', p.symbol);
   save();
   return pos;
 }
@@ -300,30 +341,58 @@ function manage() {
     pos.lastUsd = p.priceUsd;
     if (p.priceUsd > pos.peakUsd) pos.peakUsd = p.priceUsd;
 
+    /* backwards compatibility with a book saved under the old rulebook */
+    if (pos.targetPct === undefined) {
+      pos.exitCost = RULES.SWAP_FEE * 100 + 1.5;
+      pos.targetPct = clamp((RULES.TARGET_SOL / Math.max(pos.costSol, 0.01)) * 100 + pos.exitCost,
+                            RULES.TARGET_MIN_PCT, RULES.TARGET_MAX_PCT);
+      pos.targetSol = pos.costSol * (pos.targetPct - pos.exitCost) / 100;
+      pos.scaled = !!pos.tp1;
+      pos.peakPct = 0;
+    }
+
     var pnlPct = (p.priceUsd / pos.entryUsd - 1) * 100;
     var heldMin = (Date.now() - pos.entryAt) / 60000;
+    if (pnlPct > pos.peakPct) pos.peakPct = pnlPct;
 
+    /* the pool is draining — nothing else matters */
     if (p.liqUsd < pos.liqAtEntry * (1 - RULES.RUG_LIQ_DROP)) {
       log('risk', 'RISK  ' + pos.symbol + ' pool down to ' + fmtUsd(p.liqUsd) + ' from ' +
         fmtUsd(pos.liqAtEntry) + ' — getting out now', pos.symbol);
       sell(pos, 1, 'liquidity guard'); continue;
     }
+
     if (pnlPct <= RULES.STOP_PCT) { sell(pos, 1, 'stop loss'); continue; }
-    if (!pos.tp1 && pnlPct >= RULES.TP1_PCT) {
-      pos.tp1 = true;
-      log('manage', 'TP1   ' + pos.symbol + ' ' + sgn(pnlPct) + ' — banking half, runner keeps trailing', pos.symbol);
-      sell(pos, 0.5, 'take profit'); continue;
-    }
-    if (!pos.trail && pnlPct >= RULES.TRAIL_ARM) {
+
+    /* target reached — take the win and free the slot */
+    if (pnlPct >= pos.targetPct) { sell(pos, 1, 'target hit'); continue; }
+
+    /* half way there: bank a slice so the trade cannot go red on us */
+    if (!pos.scaled && pnlPct >= pos.targetPct * RULES.SCALE_AT) {
+      pos.scaled = true;
       pos.trail = true;
-      log('manage', 'TRAIL ' + pos.symbol + ' stop armed ' + RULES.TRAIL_PCT +
-        '% under the high water mark', pos.symbol);
+      log('manage', 'SCALE ' + pos.symbol + ' ' + sgn(pnlPct) + ' — taking ' +
+        Math.round(RULES.SCALE_PORTION * 100) + '% off, trailing the rest ' +
+        RULES.TRAIL_PCT + '% under the high', pos.symbol);
+      sell(pos, RULES.SCALE_PORTION, 'scale out'); continue;
     }
+
+    /* the runner is trailed once the first slice is banked */
     if (pos.trail && p.priceUsd <= pos.peakUsd * (1 - RULES.TRAIL_PCT / 100)) {
       sell(pos, 1, 'trailing stop'); continue;
     }
-    if (pnlPct >= RULES.MOON_PCT) { sell(pos, 1, 'target hit'); continue; }
-    if (heldMin > RULES.TIME_STOP_MIN && pnlPct < 6) { sell(pos, 1, 'time stop'); continue; }
+
+    /* never hand back more than half of a gain worth having */
+    if (pos.peakPct > pos.exitCost + 4 && pnlPct <= pos.peakPct * (1 - RULES.GIVEBACK)) {
+      log('manage', 'FADE  ' + pos.symbol + ' gave back half of ' + sgn(pos.peakPct) +
+        ' — closing what is left', pos.symbol);
+      sell(pos, 1, 'giving back the gain'); continue;
+    }
+
+    /* dead money: the slot is worth more than the position */
+    if (heldMin > RULES.TIME_STOP_MIN && pnlPct < pos.exitCost + 2) {
+      sell(pos, 1, 'time stop'); continue;
+    }
   }
 }
 
@@ -332,11 +401,15 @@ function positionsForModel() {
   return Agent.positions.map(function (pos) {
     var p = M.byAddress[pos.address];
     var mark = p ? p.priceUsd : pos.lastUsd;
+    var value = M.toSol(pos.tokens * mark);
     return {
       symbol: pos.symbol, address: pos.address,
       entryUsd: pos.entryUsd, markUsd: mark,
       pnlPct: (mark / pos.entryUsd - 1) * 100,
-      valueSol: M.toSol(pos.tokens * mark),
+      pnlSol: value - pos.costSol,
+      valueSol: value,
+      targetPct: pos.targetPct || 0,
+      scaledOut: !!pos.scaled,
       heldMinutes: (Date.now() - pos.entryAt) / 60000
     };
   });
@@ -367,9 +440,9 @@ function applyActions(res, ranked) {
       log('think', 'REJECT BUY ' + p.symbol + ' — book already full at ' + RULES.MAX_POS + ' positions', p.symbol);
       return;
     }
-    if (p.liqUsd < RULES.MIN_LIQ_USD) {
-      log('think', 'REJECT BUY ' + p.symbol + ' — liquidity ' + fmtUsd(p.liqUsd) +
-        ' is under the ' + fmtUsd(RULES.MIN_LIQ_USD) + ' floor', p.symbol);
+    var blocked = veto(p);
+    if (blocked) {
+      log('think', 'REJECT BUY ' + p.symbol + ' — ' + blocked, p.symbol);
       return;
     }
     var equity = Agent.equityNow();
@@ -401,25 +474,31 @@ function applyActions(res, ranked) {
 
 function heuristicDecision(ranked) {
   Agent.brainSource = 'heuristic';
-  var top = ranked[0];
-  if (!top) return;
-  if (Agent.positions.length >= RULES.MAX_POS) return;
+  if (!ranked.length || Agent.positions.length >= RULES.MAX_POS) return;
 
   var held = {};
   Agent.positions.forEach(function (p) { held[p.address] = 1; });
 
-  for (var i = 0; i < Math.min(ranked.length, 6); i++) {
+  var spoke = false;
+  for (var i = 0; i < Math.min(ranked.length, 8); i++) {
     var r = ranked[i];
     if (held[r.p.address]) continue;
-    if (r.s.score < RULES.SCORE_BUY || r.p.liqUsd < RULES.MIN_LIQ_USD) {
-      if (i === 0 && r.s.score > 50) {
+
+    /* sorted by score, so once we are under the threshold nothing below qualifies */
+    if (r.s.score < RULES.SCORE_BUY) {
+      if (!spoke && r.s.score > 50) {
         log('think', 'PASS  ' + r.p.symbol + ' ' + r.s.score.toFixed(1) + '/100 — ' +
           (r.s.flags[0] || 'conviction under threshold') + ' · threshold ' + RULES.SCORE_BUY, r.p.symbol);
       }
       break;
     }
+    var no = veto(r.p);
+    if (no) {
+      if (!spoke) { spoke = true; log('think', 'PASS  ' + r.p.symbol + ' — ' + no, r.p.symbol); }
+      continue;
+    }
     var equity = Agent.equityNow();
-    var size = Math.min(equity * 0.18, Agent.cash - 0.05);
+    var size = Math.min(equity * 0.20, Agent.cash - 0.05);
     if (size < 0.12) return;
     log('thesis', 'THESIS ' + r.p.symbol + ' — 5m ' + sgn(r.p.ch.m5) + ' · 1h ' + sgn(r.p.ch.h1) +
       ' · LP ' + fmtUsd(r.p.liqUsd) + ' · turnover ×' + r.s.turnover.toFixed(2) +
@@ -621,8 +700,10 @@ Agent.init = function () {
   var restored = restore();
   if (!restored) {
     log('boot', 'BOOT  Tradoor online · paper wallet funded with 10.000 SOL', null);
+    log('boot', 'BOOT  objective — bank 0.20 to 0.50 SOL a trade, over and over. No moonshots.', null);
     log('boot', 'BOOT  risk limits — max ' + RULES.MAX_POS + ' positions · stop ' + RULES.STOP_PCT +
-      '% · trail ' + RULES.TRAIL_PCT + '% · liquidity floor ' + fmtUsd(RULES.MIN_LIQ_USD), null);
+      '% · trail ' + RULES.TRAIL_PCT + '% · liquidity floor ' + fmtUsd(RULES.MIN_LIQ_USD) +
+      ' · board floor $100K market cap', null);
     log('boot', 'BOOT  scanning Solana pairs from DEX Screener · decisions by the model on fal.ai', null);
   } else {
     log('boot', 'BOOT  session restored · ' + Agent.positions.length + ' open · ' +
