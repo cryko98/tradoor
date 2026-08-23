@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Tradoor — the memecoin agent that trades by itself</title>
+<meta name="description" content="Tradoor is an autonomous agent on Solana. It reads live DEX Screener data on trending memecoins, thinks with an LLM, and trades a 10 SOL paper wallet on its own — every decision printed as it happens." />
+<meta name="theme-color" content="#070A10" />
+
+<link rel="icon" type="image/jpeg" href="logo.jpg" />
+<link rel="apple-touch-icon" href="logo.jpg" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Tradoor — the memecoin agent that trades by itself" />
+<meta property="og:description" content="Real trending Solana memecoins. Real analysis by a model. 10 SOL, no human hands." />
+<meta property="og:image" content="logo.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Tradoor — the memecoin agent that trades by itself" />
+<meta name="twitter:description" content="Real trending Solana memecoins. Real analysis by a model. 10 SOL, no human hands." />
+<meta name="twitter:image" content="logo.jpg" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://api.dexscreener.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════ BOOT ══════════════════════════════ -->
+<div class="boot" id="boot">
+  <div class="boot__inner">
+    <img class="boot__face" src="logo.jpg" alt="" />
+    <div class="boot__title">TRADOOR<span>v2.0</span></div>
+    <pre class="boot__log" id="bootLog"></pre>
+    <div class="boot__bar"><i id="bootBar"></i></div>
+    <div class="boot__hint" id="bootHint">pulling the live board…</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ NAV ══════════════════════════════ -->
+<header class="nav" id="nav">
+  <a class="nav__brand" href="#top">
+    <span class="nav__mark"><img src="logo.jpg" alt="Tradoor" /></span>
+    <span class="nav__name">Tradoor<i>$TRADOOR</i></span>
+  </a>
+  <nav class="nav__links" id="navLinks">
+    <a href="#terminal">Terminal</a>
+    <a href="#how">How it trades</a>
+    <a href="#rules">Risk rules</a>
+    <a href="#token">Token</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <div class="nav__actions">
+    <span class="nav__live" id="navLive"><i></i><b>LIVE</b><em id="navEquity">10.000 SOL</em></span>
+    <a class="icon-btn x-link" href="#" target="_blank" rel="noopener" aria-label="Follow on X">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+    </a>
+    <a class="btn btn--solid buy-link" href="#token"><span>Buy $TRADOOR</span></a>
+    <button class="burger" id="burger" aria-label="Menu" aria-expanded="false"><i></i><i></i></button>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ══════════════════════════════ HERO ══════════════════════════════ -->
+<section class="hero">
+  <div class="hero__glow" aria-hidden="true"></div>
+  <div class="hero__grid" aria-hidden="true"></div>
+
+  <div class="wrap hero__inner">
+    <div class="hero__copy">
+      <div class="eyebrow"><span class="led"></span> Autonomous agent · live Solana pairs · paper wallet</div>
+      <h1 class="hero__title">
+        He trades memecoins<br />
+        <em>so you don&rsquo;t have to.</em>
+      </h1>
+      <p class="hero__sub">
+        Tradoor watches the <b>real</b> trending Solana board — live prices, liquidity, volume and
+        buy pressure straight from DEX Screener — hands the shortlist to a language model, and takes
+        the trade himself. Ten SOL, four slots, hard stops, nobody at the keyboard.
+        Every thought he has is printed below while it happens.
+      </p>
+      <div class="hero__cta">
+        <a class="btn btn--solid btn--lg buy-link" href="#token"><span>Buy $TRADOOR</span></a>
+        <a class="btn btn--ghost btn--lg" href="#terminal"><span>Watch him trade</span></a>
+      </div>
+      <div class="hero__facts">
+        <div><b id="heroTrades">0</b><span>transactions today</span></div>
+        <div><b id="heroScans">0</b><span>scanner passes</span></div>
+        <div><b id="heroUniverse">0</b><span>live pairs watched</span></div>
+      </div>
+    </div>
+
+    <!-- live agent card -->
+    <aside class="agent">
+      <div class="agent__top">
+        <div class="agent__face"><img src="logo.jpg" alt="Tradoor" /><span class="agent__led"></span></div>
+        <div class="agent__id">
+          <b>Tradoor</b>
+          <span id="agentState">booting</span>
+        </div>
+        <div class="agent__uptime"><i>session</i><span id="agentClock">00:00:00</span></div>
+      </div>
+
+      <div class="agent__equity">
+        <span class="agent__label">Wallet equity</span>
+        <div class="agent__value"><b id="agentEquity">10.000</b><i>SOL</i></div>
+        <div class="agent__delta" id="agentDelta">+0.000 SOL · +0.00%</div>
+      </div>
+
+      <canvas class="agent__spark" id="equitySpark" height="90"></canvas>
+
+      <div class="agent__row">
+        <div><i>Free SOL</i><b id="agentCash">10.000</b></div>
+        <div><i>Open</i><b id="agentOpen">0 / 4</b></div>
+        <div><i>Win rate</i><b id="agentWin">—</b></div>
+      </div>
+
+      <button class="agent__wallet" type="button" data-copy id="walletBtn" title="Copy wallet address">
+        <i>Paper wallet</i>
+        <span id="walletAddr">—</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-4M5 9h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/></svg>
+      </button>
+      <p class="agent__note">Real prices, real analysis, simulated money. <a href="#faq">What that means</a></p>
+    </aside>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ TICKER ══════════════════════════════ -->
+<div class="ticker" aria-hidden="true"><div class="ticker__track" id="tickerTrack"></div></div>
+
+<!-- ══════════════════════════════ TERMINAL ══════════════════════════════ -->
+<section class="section terminal" id="terminal">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2 class="sec-title">The Terminal</h2>
+      <p class="sec-kicker">Live Solana pairs. Live decisions. Nothing below is a recording.</p>
+    </div>
+
+    <div class="statusbar">
+      <span class="statusbar__live"><i></i>LIVE</span>
+      <span class="statusbar__tag">PAPER</span>
+      <div class="statusbar__items">
+        <div><i>Session</i><b id="sbSession">—</b></div>
+        <div><i>Equity</i><b id="sbEquity">—</b></div>
+        <div><i>P&amp;L</i><b id="sbPnl">—</b></div>
+        <div><i>Realised</i><b id="sbReal">—</b></div>
+        <div><i>Positions</i><b id="sbOpen">—</b></div>
+        <div><i>Win rate</i><b id="sbWin">—</b></div>
+        <div><i>Max DD</i><b id="sbDD">—</b></div>
+        <div><i>Fees</i><b id="sbFees">—</b></div>
+        <div><i>SOL</i><b id="sbSol">—</b></div>
+        <div><i>Brain</i><b id="sbBrain">—</b></div>
+      </div>
+    </div>
+
+    <div class="grid">
+
+      <!-- ── scanner ── -->
+      <section class="panel panel--scan">
+        <header class="panel__head">
+          <h3>Trending scanner</h3>
+          <div class="tabs" id="scanTabs">
+            <button class="is-on" data-sort="score">Agent score</button>
+            <button data-sort="ch5m">5m movers</button>
+            <button data-sort="volume">Volume</button>
+            <button data-sort="new">Newest</button>
+          </div>
+        </header>
+        <div class="table-wrap">
+          <table class="tbl tbl--scan">
+            <thead>
+              <tr>
+                <th class="c-rank">#</th><th class="c-coin">Pair</th><th class="num">Price</th>
+                <th class="num">5m</th><th class="num">1h</th><th class="num">MCAP</th>
+                <th class="num">Liquidity</th><th class="num">Age</th><th class="num">Vol 1h</th>
+                <th class="c-spark">Trend</th><th class="num c-score">Score</th><th class="c-flag">Agent</th>
+              </tr>
+            </thead>
+            <tbody id="scanBody"></tbody>
+          </table>
+        </div>
+        <footer class="panel__foot">
+          <span id="scanFoot">indexing…</span>
+          <span class="muted">click any row to inspect the pair</span>
+        </footer>
+      </section>
+
+      <!-- ── brain ── -->
+      <section class="panel panel--brain">
+        <header class="panel__head">
+          <h3>Decision stream</h3>
+          <span class="pulse" id="brainPulse">thinking</span>
+        </header>
+        <div class="thesis" id="brainThesis"></div>
+        <div class="stream" id="stream"></div>
+      </section>
+
+      <!-- ── focus ── -->
+      <section class="panel panel--focus">
+        <header class="panel__head">
+          <h3>Pair inspector</h3>
+          <span class="chip" id="focusRegime">—</span>
+        </header>
+        <div class="focus">
+          <div class="focus__top">
+            <div class="focus__id">
+              <span id="focusMark"></span>
+              <div>
+                <b id="focusSymbol">—</b>
+                <i id="focusName">waiting for the scanner</i>
+              </div>
+            </div>
+            <div class="focus__price">
+              <b id="focusPrice">—</b>
+              <i id="focusChange">—</i>
+            </div>
+          </div>
+          <canvas class="focus__chart" id="focusChart" height="150"></canvas>
+          <div class="bars" id="focusBars"></div>
+          <div class="focus__meta" id="focusMeta"></div>
+        </div>
+      </section>
+
+      <!-- ── portfolio ── -->
+      <section class="panel panel--pf">
+        <header class="panel__head">
+          <h3>Portfolio</h3>
+          <span class="chip" id="pfChip">10.000 SOL</span>
+        </header>
+        <canvas class="pf__chart" id="equityChart" height="180"></canvas>
+        <div class="table-wrap">
+          <table class="tbl tbl--pf">
+            <thead>
+              <tr>
+                <th class="c-coin">Holding</th><th class="num">Size</th><th class="num">Entry</th>
+                <th class="num">Mark</th><th class="num">Value</th><th class="num">P&amp;L</th>
+                <th class="c-stop">Management</th>
+              </tr>
+            </thead>
+            <tbody id="pfBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── watchlist ── -->
+      <section class="panel panel--watch">
+        <header class="panel__head">
+          <h3>Watchlist</h3>
+          <span class="chip" id="watchChip">0 tracked</span>
+        </header>
+        <div class="watch" id="watchList"></div>
+      </section>
+
+      <!-- ── transactions ── -->
+      <section class="panel panel--tx">
+        <header class="panel__head">
+          <h3>Transactions</h3>
+          <span class="chip chip--sim">paper fills · simulated signatures</span>
+        </header>
+        <div class="txs" id="txList"></div>
+      </section>
+
+      <!-- ── closed trades ── -->
+      <section class="panel panel--hist">
+        <header class="panel__head">
+          <h3>Closed trades</h3>
+          <span class="chip" id="histChip">0</span>
+        </header>
+        <div class="hist" id="histList"></div>
+      </section>
+
+    </div>
+
+    <div class="archive">
+      <div class="archive__head"><h4>Previous sessions</h4><span>the wallet resets to 10.000 SOL every day at 00:00 UTC</span></div>
+      <div class="archive__row" id="archiveRow"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ HOW ══════════════════════════════ -->
+<section class="section how" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2 class="sec-title">How he trades</h2>
+      <p class="sec-kicker">Six steps, on a loop, forever</p>
+    </div>
+
+    <ol class="steps">
+      <li class="step">
+        <span class="step__n">01</span>
+        <h3>Scan</h3>
+        <p>Every 20 seconds the board is pulled from DEX Screener: boosted and freshly profiled Solana tokens, then full pair data — price, 5m/1h/6h/24h change, volume, liquidity, market cap, buys against sells, pair age.</p>
+      </li>
+      <li class="step">
+        <span class="step__n">02</span>
+        <h3>Filter</h3>
+        <p>Anything under $15,000 of liquidity is dropped before it is considered — you cannot sell what has no pool. Pairs already up more than 250% on the hour are dropped too. That is somebody else&rsquo;s exit.</p>
+      </li>
+      <li class="step">
+        <span class="step__n">03</span>
+        <h3>Score</h3>
+        <p>What survives gets a conviction number out of 100: momentum 26, trend 14, volume against pool 18, liquidity depth 13, 5m buy pressure 14, token quality 15.</p>
+      </li>
+      <li class="step">
+        <span class="step__n">04</span>
+        <h3>Think</h3>
+        <p>The top fourteen go to a language model on fal.ai with the current book attached. It answers with a thesis and at most two actions. If it wants nothing, nothing happens — and that is the most common answer.</p>
+      </li>
+      <li class="step">
+        <span class="step__n">05</span>
+        <h3>Execute</h3>
+        <p>Every proposal is checked against the rulebook before it fills: position count, size cap, free SOL, liquidity floor. Slippage is priced off the real pool depth, fees are booked, the signature hits the tape.</p>
+      </li>
+      <li class="step">
+        <span class="step__n">06</span>
+        <h3>Manage</h3>
+        <p>Stop at &minus;18%. Half off the table at +42%. Trailing stop 15% under the high water mark. Time stop after 45 minutes of nothing. Instant exit if the pool drains 45% below where he bought.</p>
+      </li>
+    </ol>
+
+    <div class="how__note">
+      <p><b>No human in the loop.</b> There is no dashboard where somebody picks the coin, no queue of
+      trades waiting for approval, no override switch. The model proposes, the rulebook disposes, the
+      risk manager closes. You get to read the reasoning — that&rsquo;s the whole relationship.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ RULES ══════════════════════════════ -->
+<section class="section rules" id="rules">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2 class="sec-title">Risk rules</h2>
+      <p class="sec-kicker">The lines the model is not allowed to cross</p>
+    </div>
+    <div class="rules__grid">
+      <div class="rule"><b>10.000</b><span>SOL</span><i>Opening balance every session. He never gets a top-up.</i></div>
+      <div class="rule"><b>4</b><span>max</span><i>Concurrent positions. The fifth idea has to wait.</i></div>
+      <div class="rule"><b>25%</b><span>cap</span><i>Largest slice of equity a single memecoin can take.</i></div>
+      <div class="rule"><b>&minus;18%</b><span>stop</span><i>Hard stop loss. No averaging down, ever.</i></div>
+      <div class="rule"><b>$15K</b><span>floor</span><i>Minimum pool depth. Below it, there is no exit.</i></div>
+      <div class="rule"><b>15%</b><span>trail</span><i>Trailing stop once a position is up more than 22%.</i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ TOKEN ══════════════════════════════ -->
+<section class="section token" id="token">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2 class="sec-title">$TRADOOR</h2>
+      <p class="sec-kicker">The token of the guy who never sleeps</p>
+    </div>
+
+    <div class="token__grid">
+      <div class="stats">
+        <div class="stat"><div class="stat__k">Total supply</div><div class="stat__v"><span class="count" data-to="1000000000">0</span></div><div class="stat__n">Minted once. Never again.</div></div>
+        <div class="stat"><div class="stat__k">Tax</div><div class="stat__v"><span class="count" data-to="0">0</span><i>%</i></div><div class="stat__n">Zero on buys, zero on sells.</div></div>
+        <div class="stat"><div class="stat__k">Liquidity</div><div class="stat__v"><span class="count" data-to="100">0</span><i>%</i></div><div class="stat__n">Burned at launch.</div></div>
+        <div class="stat"><div class="stat__k">Mint authority</div><div class="stat__v stat__v--word">Revoked</div><div class="stat__n">Freeze authority too.</div></div>
+      </div>
+
+      <div class="buybox">
+        <h3>How to buy</h3>
+        <ol>
+          <li><b>Get a Solana wallet</b><span>Phantom, Solflare or Backpack. Seed phrase on paper, never in a chat.</span></li>
+          <li><b>Fund it with SOL</b><span>Buy on any exchange, withdraw to your address, leave a little for fees.</span></li>
+          <li><b>Open the token page</b><span>Hit Buy, or paste the contract into Jupiter. Check every character.</span></li>
+          <li><b>Swap and hold</b><span>Confirm. $TRADOOR shows up in the wallet. That is the whole flow.</span></li>
+        </ol>
+        <div class="ca">
+          <div class="ca__label">Contract address</div>
+          <button class="ca__value" type="button" data-copy title="Copy contract address">
+            <span data-ca>Coming soon</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-4M5 9h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/></svg>
+          </button>
+        </div>
+        <a class="btn btn--solid btn--lg buy-link" href="#"><span>Buy $TRADOOR</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ FAQ ══════════════════════════════ -->
+<section class="section faq" id="faq">
+  <div class="wrap wrap--narrow">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2 class="sec-title">Questions</h2>
+      <p class="sec-kicker">Short answers only</p>
+    </div>
+    <div class="acc">
+      <div class="acc__item">
+        <button class="acc__q" type="button" aria-expanded="false"><span>Is Tradoor trading real money?</span><i></i></button>
+        <div class="acc__a"><p>No. The coins, the prices, the liquidity and the volume are <b>real</b> — they come from the public DEX Screener API, the same numbers you see on their site. The wallet is <b>not</b>: it is 10 simulated SOL, filled at real market prices with slippage priced off the actual pool depth and fees booked against every trade. Nobody can deposit, nobody can withdraw, and the signatures on the tape are generated for the feed rather than broadcast to a validator.</p></div>
+      </div>
+      <div class="acc__item">
+        <button class="acc__q" type="button" aria-expanded="false"><span>Who decides what he buys?</span><i></i></button>
+        <div class="acc__a"><p>A language model running on fal.ai. It gets the shortlist, the current positions and the free balance, and answers with a thesis plus at most two actions. Everything it proposes is then checked against a rulebook it cannot edit — position count, size cap, liquidity floor, free SOL. If the model is unavailable, the built-in scoring model takes over and the terminal says so.</p></div>
+      </div>
+      <div class="acc__item">
+        <button class="acc__q" type="button" aria-expanded="false"><span>Are the tokens on the board a recommendation?</span><i></i></button>
+        <div class="acc__a"><p>Absolutely not. They are whatever is trending and boosted on Solana at that minute, which is mostly noise and occasionally a rug. Nothing here is advice, a signal, or a claim about any token. Most of these will be worth nothing next week.</p></div>
+      </div>
+      <div class="acc__item">
+        <button class="acc__q" type="button" aria-expanded="false"><span>Why is my board different from my friend&rsquo;s?</span><i></i></button>
+        <div class="acc__a"><p>The market data is the same for everybody — one cached feed on the edge. The book is yours: the session lives in your browser, so your Tradoor and their Tradoor may end up holding different names. Same brain, same rules, separate wallets.</p></div>
+      </div>
+      <div class="acc__item">
+        <button class="acc__q" type="button" aria-expanded="false"><span>What does $TRADOOR do?</span><i></i></button>
+        <div class="acc__a"><p>It is a memecoin. No yield, no revenue share, no claim on anything the agent does. Holding it means you liked the bit. Assume it can go to zero and only spend what you are fine losing.</p></div>
+      </div>
+      <div class="acc__item">
+        <button class="acc__q" type="button" aria-expanded="false"><span>Why does he restart at 10 SOL every day?</span><i></i></button>
+        <div class="acc__a"><p>So the run stays honest. A number that only goes up because it has been compounding since launch tells you nothing. One day, one wallet, one flat 10 SOL — win or lose, the tape resets at 00:00 UTC and yesterday drops into the archive.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ CTA ══════════════════════════════ -->
+<section class="cta">
+  <div class="wrap">
+    <p class="cta__kicker">He is still going.</p>
+    <h2 class="cta__title">Ten SOL. <em>No hands.</em></h2>
+    <div class="cta__row">
+      <a class="btn btn--solid btn--lg buy-link" href="#token"><span>Buy $TRADOOR</span></a>
+      <a class="btn btn--ghost btn--lg x-link" href="#" target="_blank" rel="noopener"><span>Follow on X</span></a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ══════════════════════════════ FOOTER ══════════════════════════════ -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer__top">
+      <div class="footer__brand">
+        <span class="nav__mark"><img src="logo.jpg" alt="Tradoor" /></span>
+        <div><div class="footer__name">Tradoor</div><div class="footer__tick">$TRADOOR · Solana</div></div>
+      </div>
+      <nav class="footer__nav">
+        <a href="#terminal">Terminal</a>
+        <a href="#how">How it trades</a>
+        <a href="#rules">Risk rules</a>
+        <a href="#token">Token</a>
+        <a href="#faq">FAQ</a>
+        <a href="#" class="x-link" target="_blank" rel="noopener">X</a>
+      </nav>
+    </div>
+    <div class="footer__word" aria-hidden="true">TRADOOR</div>
+    <div class="footer__bottom">
+      <p><b>Paper trading notice.</b> Market data on this page is live from the public DEX Screener API.
+      The wallet is not. Balances, fills, positions and transaction signatures are simulated in your
+      browser for entertainment: no funds are held, moved or managed, no order reaches any exchange or
+      validator, and past or present figures here are not a performance record. Nothing on this page is
+      financial advice or a recommendation to buy any token. $TRADOOR is a memecoin with no expectation
+      of profit. Do your own research.</p>
+      <span>&copy; <span id="year">2026</span> Tradoor</span>
+    </div>
+  </div>
+</footer>
+
+<div class="toast" id="toast">Copied</div>
+
+<script src="market.js"></script>
+<script src="agent.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
