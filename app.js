@@ -412,7 +412,7 @@ function renderPortfolio(st) {
     cell.appendChild(markFor(pos));
     var box = el('div');
     box.appendChild(el('b', null, pos.symbol));
-    box.appendChild(el('i', null, 'in at ' + hhmmss(pos.entryAt) + ' UTC'));
+    box.appendChild(el('i', null, 'in at ' + hhmmss(pos.entryAt).slice(0, 5) + ' UTC'));
     cell.appendChild(box); tdCoin.appendChild(cell); tr.appendChild(tdCoin);
 
     tr.appendChild(el('td', 'num', A.fmtAmt(pos.tokens)));
@@ -427,7 +427,9 @@ function renderPortfolio(st) {
     var tdM = el('td', 'c-stop'), m = el('div', 'mgmt');
     m.appendChild(el('span', pos.tp1 ? 'on' : '', 'TP1'));
     m.appendChild(el('span', pos.trail ? 'on' : '', 'TRAIL'));
-    m.appendChild(el('span', '', 'STOP $' + A.fmtPrice(pos.entryUsd * (1 + A.RULES.STOP_PCT / 100))));
+    var stop = el('span', '', 'STOP');
+    stop.title = 'stop loss at $' + A.fmtPrice(pos.entryUsd * (1 + A.RULES.STOP_PCT / 100));
+    m.appendChild(stop);
     tdM.appendChild(m); tr.appendChild(tdM);
 
     body.appendChild(tr);
