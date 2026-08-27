@@ -26,18 +26,20 @@ var RULES = {
   MAX_SIZE_PCT:   25,
   MIN_LIQ_USD:    15000,
 
-  TARGET_SOL:     0.32,   // what a normal winner is worth, net
-  TARGET_MIN_PCT: 9,      // never take a trade for less than this move
-  TARGET_MAX_PCT: 30,     // never sit there waiting for more than this
+  TARGET_SOL:     0.55,   // what a normal winner is worth, net
+  TARGET_MIN_PCT: 15,     // never take a trade for less than this move
+  TARGET_MAX_PCT: 60,     // never sit there waiting for more than this
   SCALE_AT:       0.5,    // scale out at half the target...
-  SCALE_PORTION:  0.4,    // ...selling this much of the position
+  SCALE_PORTION:  0.35,   // ...selling this much of the position
+  BANK_PORTION:   0.6,    // at the full target, bank this much of what is left...
+  RUNNER_CAP:     2.2,    // ...and the runner is cut at target × this, no matter what
   GIVEBACK:       0.5,    // hand back at most half of an open gain
 
   MAX_H1:         150,    // above this the move is already somebody's exit
   MAX_M5:         40,     // never buy into a vertical candle
   STOP_PCT:      -11,
-  TRAIL_PCT:      7,      // trail under the high water mark once scaled
-  TIME_STOP_MIN:  25,     // dead money gets recycled
+  TRAIL_PCT:      10,     // trail under the high water mark once scaled
+  TIME_STOP_MIN:  35,     // dead money gets recycled
   RUG_LIQ_DROP:   0.40,
 
   /* the migration snipe: a pump.fun coin that just graduated onto PumpSwap.
@@ -45,7 +47,7 @@ var RULES = {
   SNIPE_AGE_MIN:  75,     // tradeable as a snipe this long after migration
   SNIPE_SIZE_PCT: 10,     // smaller clip — these can halve in minutes
   SNIPE_STOP:    -9,
-  SNIPE_TIME_MIN: 12,     // in and out; a stalled snipe is a failed snipe
+  SNIPE_TIME_MIN: 15,     // in and out; a stalled snipe is a failed snipe
   SNIPE_MAX_M5:   90,     // fresh graduates are allowed a vertical candle
   SNIPE_SCORE:    56,     // lower bar — recency is the edge, not the score
 
@@ -299,7 +301,7 @@ function buy(p, sizeSol, reason, conviction, lane) {
      prints is what actually lands in the wallet. */
   var exitCost = RULES.SWAP_FEE * 100 + imp;
   var targetPct = snipe
-    ? clamp((RULES.TARGET_SOL * 0.7 / sizeSol) * 100 + exitCost, 12, 25)
+    ? clamp((RULES.TARGET_SOL * 0.85 / sizeSol) * 100 + exitCost, 18, 45)
     : clamp((RULES.TARGET_SOL / sizeSol) * 100 + exitCost,
             RULES.TARGET_MIN_PCT, RULES.TARGET_MAX_PCT);
 
@@ -442,8 +444,21 @@ function manage() {
       sell(pos, 1, 'breakeven stop'); continue;
     }
 
-    /* target reached — take the win and free the slot */
-    if (pnlPct >= pos.targetPct) { sell(pos, 1, 'target hit'); continue; }
+    /* target reached — bank most of it, but the runner stays on the trail:
+       the big winners come from the piece that is allowed to keep going */
+    if (!pos.banked && pnlPct >= pos.targetPct) {
+      pos.banked = true;
+      pos.trail = true;
+      log('manage', 'BANK  ' + pos.symbol + ' ' + sgn(pnlPct) + ' — target hit, taking ' +
+        Math.round(RULES.BANK_PORTION * 100) + '%, the runner trails ' + RULES.TRAIL_PCT +
+        '% under the high for more', pos.symbol);
+      sell(pos, RULES.BANK_PORTION, 'target hit'); continue;
+    }
+
+    /* the runner does not get to ride forever */
+    if (pos.banked && pnlPct >= pos.targetPct * RULES.RUNNER_CAP) {
+      sell(pos, 1, 'runner cap'); continue;
+    }
 
     /* half way there: bank a slice so the trade cannot go red on us */
     if (!pos.scaled && pnlPct >= pos.targetPct * RULES.SCALE_AT) {
@@ -818,7 +833,7 @@ Agent.init = function () {
   var restored = restore();
   if (!restored) {
     log('boot', 'BOOT  Tradoor online · paper wallet funded with 10.000 SOL', null);
-    log('boot', 'BOOT  objective — bank 0.20 to 0.50 SOL a trade, over and over. No moonshots.', null);
+    log('boot', 'BOOT  objective — bank 0.4 to 1 SOL a trade, and let the runner stretch it. No bag-holding.', null);
     log('boot', 'BOOT  risk limits — max ' + RULES.MAX_POS + ' positions · stop ' + RULES.STOP_PCT +
       '% · trail ' + RULES.TRAIL_PCT + '% · liquidity floor ' + fmtUsd(RULES.MIN_LIQ_USD) +
       ' · board floor $100K market cap', null);

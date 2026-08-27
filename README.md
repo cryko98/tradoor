@@ -90,7 +90,7 @@ var CONFIG = {
    because a graduate's whole 1h change is its life since migration.
 3. **Score** — conviction out of 100: momentum 26, trend 14, volume/LP 18, liquidity 13,
    5m buy pressure 14, token quality 15, plus a decaying freshness bonus for migrations.
-4. **Think** — top 14 plus the current book go to the model, told to hunt clean 10–25%
+4. **Think** — top 14 plus the current book go to the model, told to hunt 20–50%
    moves rather than moonshots, and to snipe fresh migrations small and fast. Between
    model calls the built-in brain can act on its own: a high-conviction momentum entry
    (score ≥ 68) or a **migration snipe** (graduated < 75 min ago, buyers in control) —
@@ -98,11 +98,12 @@ var CONFIG = {
 5. **Execute** — every proposal is re-checked against the rulebook (position count, size
    cap, free SOL, liquidity floor, per-name cooldown) before it fills. Slippage comes
    off real pool depth.
-6. **Bank it** — each position carries a SOL target, 0.2–0.5 net of fees, converted to a
-   percentage against the size actually bought. 40% off at half the target, the rest
-   trails 7% under the high, stop at −11%, a scaled winner can never close red, half of
-   any open gain given back closes it, time stop at 25 minutes. Snipes run tighter:
-   10% clips, −9% stop, 12-minute time stop.
+6. **Bank it** — each position carries a SOL target, 0.4–1 net of fees, converted to a
+   percentage against the size actually bought. 35% off at half the target; at the full
+   target 60% of the rest is banked and the runner trails 10% under the high (cut at
+   2.2× the target no matter what). Stop at −11%, a scaled winner can never close red,
+   half of any open gain given back closes it, time stop at 35 minutes. Snipes run
+   tighter: 10% clips, −9% stop, 15-minute time stop.
 
 Discipline layer: a name just closed cannot be rebought for 10 minutes (20 after a
 loss), and three full-close losses in a row park all new entries for 10 minutes.
