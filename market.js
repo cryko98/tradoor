@@ -30,6 +30,7 @@ var EXCLUDE = {};
 var Market = {
   pairs: [],
   byAddress: {},
+  launchpad: [],        // pump.fun coins still on the bonding curve
   solUsd: 0,
   updatedAt: 0,
   source: '',
@@ -92,7 +93,9 @@ function normalise(p, boosts) {
     marketCap: p.marketCap || p.fdv || 0,
     createdAt: created,
     ageHours: created ? (Date.now() - created) / 3600000 : null,
-    boosts: (p.boosts && p.boosts.active) || (boosts && boosts[p.baseToken.address]) || 0
+    boosts: (p.boosts && p.boosts.active) || (boosts && boosts[p.baseToken.address]) || 0,
+    /* a PumpSwap pair is born the moment a pump.fun coin graduates */
+    isMigration: p.dexId === 'pumpswap' && created > 0 && Date.now() - created < 3 * 3600000
   };
 }
 
@@ -107,12 +110,15 @@ function rank(p) {
     else if (p.ageHours < 24) r += 1.2;
     else if (p.ageHours < 72) r += 0.5;
   }
+  if (p.isMigration) r += 2.5;
   return r;
 }
 
 function eligible(p) {
+  /* fresh PumpSwap graduates arrive around $69K, under the normal floor */
+  var mcapFloor = p.isMigration ? 45000 : MIN_MCAP;
   return !EXCLUDE[p.address] && p.priceUsd > 0 &&
-    p.marketCap >= MIN_MCAP && p.marketCap <= MAX_MCAP && p.liqUsd >= MIN_LIQ;
+    p.marketCap >= mcapFloor && p.marketCap <= MAX_MCAP && p.liqUsd >= MIN_LIQ;
 }
 
 /* ------------------------------------------------------- direct fallback -- */
@@ -255,6 +261,7 @@ Market.refresh = function () {
     if (!data || !Array.isArray(data.pairs) || !data.pairs.length) throw new Error('empty payload');
 
     Market.pairs = data.pairs;
+    Market.launchpad = Array.isArray(data.launchpad) ? data.launchpad : [];
     Market.byAddress = {};
     data.pairs.forEach(function (p) {
       Market.byAddress[p.address] = p;

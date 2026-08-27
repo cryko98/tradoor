@@ -341,8 +341,11 @@ function renderScan() {
 
     var f = q.flag;
     if (held[p.address])        { f.className = 'flag flag--held';  f.textContent = 'holding'; }
+    else if (p.isMigration && p.ageHours !== null && p.ageHours * 60 <= A.RULES.SNIPE_AGE_MIN)
+                                { f.className = 'flag flag--snipe'; f.textContent = 'migrated ' + Math.round(p.ageHours * 60) + 'm'; }
     else if (watch[p.address])  { f.className = 'flag flag--watch'; f.textContent = 'watching'; }
     else if (p.liqUsd < A.RULES.MIN_LIQ_USD) { f.className = 'flag flag--rug'; f.textContent = 'thin LP'; }
+    else if (p.isMigration)     { f.className = 'flag flag--new';   f.textContent = 'pumpswap'; }
     else if (p.ageHours !== null && p.ageHours < 1) { f.className = 'flag flag--new'; f.textContent = 'new'; }
     else if (p.ch.m5 > 3)       { f.className = 'flag flag--new';   f.textContent = 'moving'; }
     else                        { f.className = 'flag'; f.textContent = p.ch.h1 >= 0 ? 'steady' : 'bleeding'; }
@@ -536,7 +539,56 @@ function renderPortfolio(st) {
 }
 
 /* ------------------------------------------------------------- watchlist -- */
+/* pump.fun coins still on the bonding curve — the agent's pre-migration radar */
+function renderLaunchpad() {
+  var box = $('#launchpad');
+  if (!box) return;
+  var lp = M.launchpad || [];
+  box.innerHTML = '';
+  if (!lp.length) { box.style.display = 'none'; return; }
+  box.style.display = '';
+
+  box.appendChild(el('div', 'launch__head', 'pump.fun launchpad — sniped the moment they graduate'));
+  lp.slice(0, 5).forEach(function (c) {
+    var item = el('div', 'launch__item');
+    var mark = el('span', 'coin-mark');
+    if (c.image) {
+      var img = document.createElement('img');
+      img.src = c.image; img.alt = ''; img.loading = 'lazy';
+      img.onerror = function () { img.remove(); mark.textContent = c.symbol.slice(0, 2); };
+      mark.appendChild(img);
+    } else mark.textContent = c.symbol.slice(0, 2);
+    mark.style.background = 'hsl(' + hueOf(c.mint) + ',58%,52%)';
+    item.appendChild(mark);
+
+    var mid = el('div', 'launch__mid');
+    var top = el('div', 'launch__top');
+    top.appendChild(el('b', null, '$' + c.symbol));
+    top.appendChild(el('i', null,
+      c.kind === 'graduating' ? A.fmtUsd(c.mcapUsd) + ' mcap'
+        : (c.ageMin !== null ? c.ageMin + 'm old' : 'new')));
+    mid.appendChild(top);
+    var track = el('div', 'launch__bar');
+    var fill = el('i');
+    fill.style.width = Math.max(3, Math.round(c.progress * 100)) + '%';
+    track.appendChild(fill);
+    mid.appendChild(track);
+    item.appendChild(mid);
+
+    var pct = el('span', 'launch__pct', Math.round(c.progress * 100) + '%');
+    if (c.progress >= 0.8) pct.classList.add('is-hot');
+    item.appendChild(pct);
+
+    item.title = c.name + ' — ' + Math.round(c.progress * 100) + '% of the way to PumpSwap' +
+      (c.live ? ' · live stream on now' : '');
+    var url = 'https://pump.fun/coin/' + c.mint;
+    item.addEventListener('click', function () { window.open(url, '_blank', 'noopener'); });
+    box.appendChild(item);
+  });
+}
+
 function renderWatch() {
+  renderLaunchpad();
   var box = $('#watchList');
   box.innerHTML = '';
   var w = A.watch;

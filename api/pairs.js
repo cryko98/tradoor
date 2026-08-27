@@ -1,18 +1,21 @@
 /* ============================================================================
    GET /api/pairs
-   Trending Solana memecoins, straight from the public DEX Screener API.
+   Trending Solana memecoins, straight from the public DEX Screener API,
+   plus the pump.fun launchpad: brand-new launches still on the bonding
+   curve and coins that just graduated onto PumpSwap.
 
-   Discovery (cached 3 minutes, ~13 requests):
+   Discovery (cached 3 minutes, ~16 requests):
      token-boosts/top · token-boosts/latest · token-profiles/latest
      community-takeovers/latest · ads/latest · a handful of searches
-   Enrichment (every 20 seconds, 5 requests):
+     pump.fun: newest launches · closest to graduation · freshly graduated
+   Enrichment (every 20 seconds, ~6 requests):
      tokens/v1/solana/{addresses}   — 30 per call
 
-   That is roughly 19 requests a minute against DEX Screener's limit of 60,
+   That is roughly 22 requests a minute against DEX Screener's limit of 60,
    no matter how much traffic the page gets, because both layers are cached
    here and on the CDN.
 
-   Output: { solUsd, updatedAt, count, universe, pairs: [ ...normalised ] }
+   Output: { solUsd, updatedAt, count, universe, launchpad, pairs: [...] }
 ============================================================================ */
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -38,7 +41,12 @@ const MAX_ADDRS = 150;
 const DISCOVERY_TTL = 180000;
 const CACHE_MS = 20000;
 
-let discCache = { at: 0, addresses: [], boosts: {} };
+/* pump.fun bonding-curve mechanics: a coin graduates to PumpSwap around
+   this USD market cap. Used only to draw the launchpad progress bar. */
+const PUMP = 'https://frontend-api-v3.pump.fun';
+const GRADUATION_USD = 69000;
+
+let discCache = { at: 0, addresses: [], boosts: {}, launchpad: [] };
 let cache = { at: 0, body: null };
 
 async function getJSON(url) {
@@ -62,13 +70,35 @@ const LISTS = [
   'https://api.dexscreener.com/ads/latest/v1'
 ];
 
+/* one bonding-curve coin from the pump.fun API, trimmed for the launchpad */
+function launchEntry(c, kind) {
+  return {
+    mint: c.mint,
+    symbol: (c.symbol || '???').slice(0, 12),
+    name: (c.name || c.symbol || 'Unknown').slice(0, 42),
+    image: c.image_uri || null,
+    mcapUsd: Math.round(c.usd_market_cap || 0),
+    progress: Math.max(0, Math.min(1, (c.usd_market_cap || 0) / GRADUATION_USD)),
+    createdAt: c.created_timestamp || 0,
+    ageMin: c.created_timestamp ? Math.round((Date.now() - c.created_timestamp) / 60000) : null,
+    replies: c.reply_count || 0,
+    live: !!c.is_currently_live,
+    kind: kind                          // 'new' | 'graduating'
+  };
+}
+
 async function discover() {
   if (Date.now() - discCache.at < DISCOVERY_TTL && discCache.addresses.length) return discCache;
 
-  const [lists, searches] = await Promise.all([
+  const [lists, searches, pumpNew, pumpActive, pumpGrad] = await Promise.all([
     Promise.all(LISTS.map(soft)),
     Promise.all(SEARCH_TERMS.map((q) =>
-      soft('https://api.dexscreener.com/latest/dex/search?q=' + encodeURIComponent(q))))
+      soft('https://api.dexscreener.com/latest/dex/search?q=' + encodeURIComponent(q)))),
+    soft(PUMP + '/coins?offset=0&limit=50&sort=created_timestamp&order=DESC&includeNsfw=false'),
+    /* recently-traded bonding coins — the ones actually climbing the curve
+       (the market_cap sort is polluted with stale junk, this one is not) */
+    soft(PUMP + '/coins?offset=0&limit=50&sort=last_trade_timestamp&order=DESC&complete=false&includeNsfw=false'),
+    soft(PUMP + '/coins?offset=0&limit=50&sort=last_trade_timestamp&order=DESC&complete=true&includeNsfw=false')
   ]);
 
   const seen = new Set();
@@ -79,7 +109,15 @@ async function discover() {
     seen.add(a); addresses.push(a);
   };
 
-  /* the promoted lists first — that is where the fresh launches are */
+  /* freshly graduated pump.fun coins first — the PumpSwap pool is brand new
+     and this is exactly the window the migration snipe wants */
+  if (Array.isArray(pumpGrad)) {
+    for (const c of pumpGrad) {
+      if (c && c.complete && !c.is_banned) add(c.mint);
+    }
+  }
+
+  /* the promoted lists — that is where the trending names are */
   for (const list of lists) {
     if (!Array.isArray(list)) continue;
     for (const t of list) {
@@ -97,7 +135,35 @@ async function discover() {
     for (const p of solana) add(p.baseToken.address);
   }
 
-  discCache = { at: Date.now(), addresses: addresses.slice(0, MAX_ADDRS), boosts };
+  /* the launchpad strip: still on the curve, so DEX Screener cannot price
+     them yet — the agent watches these and pounces when they migrate */
+  const launchpad = [];
+  const lpSeen = new Set();
+  const pushLaunch = (c, kind) => {
+    if (!c || !c.mint || lpSeen.has(c.mint) || c.is_banned || c.complete) return;
+    if (!c.usd_market_cap || c.usd_market_cap < 6000) return;
+    lpSeen.add(c.mint);
+    launchpad.push(launchEntry(c, kind));
+  };
+  if (Array.isArray(pumpActive)) {
+    for (const c of pumpActive) {
+      /* trading right now and meaningfully up the curve */
+      if (c && c.usd_market_cap >= 15000 && c.usd_market_cap <= GRADUATION_USD * 1.05) pushLaunch(c, 'graduating');
+    }
+  }
+  if (Array.isArray(pumpNew)) {
+    for (const c of pumpNew) {
+      if (c && c.created_timestamp && Date.now() - c.created_timestamp < 90 * 60000) pushLaunch(c, 'new');
+    }
+  }
+  launchpad.sort((a, b) => b.progress - a.progress);
+
+  discCache = {
+    at: Date.now(),
+    addresses: addresses.slice(0, MAX_ADDRS),
+    boosts,
+    launchpad: launchpad.slice(0, 12)
+  };
   return discCache;
 }
 
@@ -147,13 +213,19 @@ function normalise(p, boosts) {
     marketCap: p.marketCap || p.fdv || 0,
     createdAt: created,
     ageHours: created ? (Date.now() - created) / 3600000 : null,
-    boosts: (p.boosts && p.boosts.active) || boosts[p.baseToken.address] || 0
+    boosts: (p.boosts && p.boosts.active) || boosts[p.baseToken.address] || 0,
+    /* a PumpSwap pair is created at the moment a pump.fun coin graduates,
+       so dexId + pair age together identify a fresh migration */
+    isMigration: p.dexId === 'pumpswap' && created > 0 && Date.now() - created < 3 * 3600000
   };
 }
 
 function eligible(p) {
   if (EXCLUDE.has(p.address)) return false;
-  if (p.marketCap < MIN_MCAP || p.marketCap > MAX_MCAP) return false;
+  /* fresh PumpSwap graduates arrive around $69K — the $100K floor would blind
+     the agent to the exact window it hunts, so migrations bypass it */
+  const mcapFloor = p.isMigration ? 45000 : MIN_MCAP;
+  if (p.marketCap < mcapFloor || p.marketCap > MAX_MCAP) return false;
   if (p.liqUsd < MIN_LIQ) return false;
   if (!p.priceUsd) return false;
   return true;
@@ -171,6 +243,7 @@ function rank(p) {
     else if (p.ageHours < 24) r += 1.2;
     else if (p.ageHours < 72) r += 0.5;
   }
+  if (p.isMigration) r += 2.5;          // fresh PumpSwap graduates stay on the board
   return r;
 }
 
@@ -208,14 +281,20 @@ async function build() {
     if (deep) solUsd = parseFloat(deep.priceUsd) || 0;
   }
 
+  /* a launchpad coin that has graduated since discovery ran is priced now —
+     drop it from the strip, the board has it */
+  const listed = new Set(pairs.map((p) => p.address));
+  const launchpad = (disc.launchpad || []).filter((c) => !listed.has(c.mint));
+
   return {
     solUsd,
     updatedAt: Date.now(),
     count: pairs.length,
     universe: { discovered: disc.addresses.length, priced: all.length, listed: pairs.length },
     floor: { marketCapUsd: MIN_MCAP, liquidityUsd: MIN_LIQ },
+    launchpad,
     pairs,
-    source: 'dexscreener'
+    source: 'dexscreener+pumpfun'
   };
 }
 

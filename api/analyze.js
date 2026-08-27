@@ -37,12 +37,18 @@ const SYSTEM = [
   'the entry. A 3x that never fills is worth less than three 15% moves that do.',
   'Consistency beats size: skip anything you cannot see paying out within the hour.',
   '',
+  'Some candidates carry "justMigratedMin": minutes since that coin graduated from the',
+  'pump.fun bonding curve onto PumpSwap. A fresh graduate is a special play: the pool is',
+  'brand new, the first 30-60 minutes decide everything, and the whole 1h change is just',
+  'its life since migration — so the +150% rule does not apply there. Snipe them small',
+  '(8-14%), take 10-20% quickly, and never marry one. If buys dry up, it is over.',
+  '',
   'Hard rules you must respect:',
-  '- Maximum 4 open positions at once.',
-  '- A single new position is 12-25% of total equity.',
+  '- Maximum 5 open positions at once.',
+  '- A single new position is 12-25% of total equity (8-14% for a fresh migration).',
   '- Never buy a pair with less than $15,000 of liquidity, you will not get out.',
-  '- Never buy a pair whose 1h price change is already above +150%: that is exit liquidity.',
-  '- Never buy into a vertical 5m candle (above +40%). Wait for the next setup instead.',
+  '- Never buy a non-migration pair whose 1h change is already above +150%: that is exit liquidity.',
+  '- Never buy into a vertical 5m candle (above +40%, or +90% for a fresh migration).',
   '- Prefer momentum confirmed by volume and by more buys than sells in the last 5 minutes.',
   '- Deep liquidity relative to your size matters more than a big headline number:',
   '  slippage in and out is what turns a 15% move into a losing trade.',
@@ -73,7 +79,10 @@ function trimCandidate(c) {
     volumeUsd: { m5: Math.round(c.vol.m5), h1: Math.round(c.vol.h1), h24: Math.round(c.vol.h24) },
     txns5m: c.txns && c.txns.m5 ? c.txns.m5.buys + '/' + c.txns.m5.sells + ' buys/sells' : null,
     boosts: c.boosts || 0,
-    socials: c.socials ? c.socials.length : 0
+    socials: c.socials ? c.socials.length : 0,
+    dex: c.dexId || null,
+    justMigratedMin: c.isMigration && c.ageHours !== null && c.ageHours !== undefined
+      ? Math.round(c.ageHours * 60) : null
   };
 }
 function r(v, d) {
@@ -161,6 +170,7 @@ module.exports = async (req, res) => {
     valueSol: r(p.valueSol, 3),
     targetPct: r(p.targetPct, 1),
     scaledOut: !!p.scaledOut,
+    lane: p.lane || undefined,
     heldMinutes: Math.round(p.heldMinutes || 0)
   }));
 
@@ -169,7 +179,7 @@ module.exports = async (req, res) => {
       equitySol: r(body.equity, 3),
       freeSol: r(body.cash, 3),
       openPositions: positions.length,
-      maxPositions: 4,
+      maxPositions: 5,
       sessionPnlPct: r(body.pnlPct, 1)
     },
     positions: positions,

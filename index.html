@@ -32,7 +32,7 @@
 <div class="boot" id="boot">
   <div class="boot__inner">
     <img class="boot__face" src="logo.jpg" alt="" />
-    <div class="boot__title">TRADOOR<span>v2.0</span></div>
+    <div class="boot__title">TRADOOR<span>v2.2</span></div>
     <pre class="boot__log" id="bootLog"></pre>
     <div class="boot__bar"><i id="bootBar"></i></div>
     <div class="boot__hint" id="bootHint">pulling the live board…</div>
@@ -77,9 +77,10 @@
         <em>to the trades that pay.</em>
       </h1>
       <p class="hero__sub">
-        Tradoor watches the <b>real</b> trending Solana board — live prices, liquidity, volume and
-        buy pressure straight from DEX Screener — hands the shortlist to a language model, and takes
-        the trade himself. He is not hunting a hundred-x. He is hunting the next clean
+        Tradoor watches the <b>real</b> trending Solana board and the <b>pump.fun launchpad</b> —
+        live prices, liquidity and buy pressure from DEX Screener, fresh launches climbing the
+        bonding curve, graduates hitting PumpSwap — hands the shortlist to a language model, and
+        takes the trade himself. He is not hunting a hundred-x. He is hunting the next clean
         <b>0.2 to 0.5 SOL</b>, over and over, with a stop under every one of them.
         Every thought he has is printed below while it happens.
       </p>
@@ -115,7 +116,7 @@
 
       <div class="agent__row">
         <div><i>Free SOL</i><b id="agentCash">10.000</b></div>
-        <div><i>Open</i><b id="agentOpen">0 / 4</b></div>
+        <div><i>Open</i><b id="agentOpen">0 / 5</b></div>
         <div><i>Win rate</i><b id="agentWin">—</b></div>
       </div>
 
@@ -257,6 +258,7 @@
           <h3>Watchlist</h3>
           <span class="chip" id="watchChip">0 tracked</span>
         </header>
+        <div class="launch" id="launchpad" style="display:none"></div>
         <div class="watch" id="watchList"></div>
       </section>
 
@@ -300,12 +302,12 @@
       <li class="step">
         <span class="step__n">01</span>
         <h3>Scan</h3>
-        <p>Boosted tokens, fresh profiles, community takeovers, promoted pairs and a sweep of searches — up to 120 Solana mints, repriced every 20 seconds: price, 5m/1h/6h/24h change, volume, liquidity, market cap, buys against sells, pair age.</p>
+        <p>Boosted tokens, fresh profiles, community takeovers, promoted pairs, a sweep of searches — and the <b>pump.fun launchpad</b>: brand-new launches, coins climbing the bonding curve, and everything that just graduated onto PumpSwap. Repriced every 20 seconds.</p>
       </li>
       <li class="step">
         <span class="step__n">02</span>
         <h3>Filter</h3>
-        <p>The board is everything above <b>$100K market cap</b> with a pool deep enough to leave — up to ninety names at a time, newest first. Under $15,000 of liquidity he will not touch it, and anything already up 150% on the hour is somebody else&rsquo;s exit.</p>
+        <p>The board is everything above <b>$100K market cap</b> with a pool deep enough to leave. Under $15,000 of liquidity he will not touch it, and anything already up 150% on the hour is somebody else&rsquo;s exit — unless it graduated in the last hour, because then the spike <em>is</em> the setup.</p>
       </li>
       <li class="step">
         <span class="step__n">03</span>
@@ -325,7 +327,7 @@
       <li class="step">
         <span class="step__n">06</span>
         <h3>Bank it</h3>
-        <p>Each position gets a SOL target — <b>0.2 to 0.5 net of fees</b> — turned into a percentage against what he actually bought. 40% comes off at half the target, the rest trails 7% under the high. Stop at &minus;11%, and if half an open gain is handed back the trade is closed.</p>
+        <p>Each position gets a SOL target — <b>0.2 to 0.5 net of fees</b> — turned into a percentage against what he actually bought. 40% comes off at half the target, the rest trails 7% under the high. Stop at &minus;11%, a scaled winner can never go red, and migration snipes run tighter still: &minus;9% stop, twelve-minute time stop, in and out.</p>
       </li>
     </ol>
 
@@ -348,7 +350,7 @@
     <div class="rules__grid">
       <div class="rule"><b>10.000</b><span>SOL</span><i>Opening balance every session. He never gets a top-up.</i></div>
       <div class="rule"><b>0.2&ndash;0.5</b><span>SOL</span><i>What a normal winner is worth. Net, after fees and slippage.</i></div>
-      <div class="rule"><b>4</b><span>max</span><i>Concurrent positions. The fifth idea has to wait.</i></div>
+      <div class="rule"><b>5</b><span>max</span><i>Concurrent positions. The sixth idea has to wait.</i></div>
       <div class="rule"><b>25%</b><span>cap</span><i>Largest slice of equity a single memecoin can take.</i></div>
       <div class="rule"><b>&minus;11%</b><span>stop</span><i>Hard stop loss. No averaging down, ever.</i></div>
       <div class="rule"><b>$100K</b><span>floor</span><i>Market cap floor for the board. Below that it is not a market.</i></div>

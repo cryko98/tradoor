@@ -21,7 +21,7 @@ var M = global.TradoorMarket;
 ---------------------------------------------------------------------------- */
 var RULES = {
   START_SOL:      10,
-  MAX_POS:        4,
+  MAX_POS:        5,
   MIN_SIZE_PCT:   12,
   MAX_SIZE_PCT:   25,
   MIN_LIQ_USD:    15000,
@@ -40,12 +40,28 @@ var RULES = {
   TIME_STOP_MIN:  25,     // dead money gets recycled
   RUG_LIQ_DROP:   0.40,
 
+  /* the migration snipe: a pump.fun coin that just graduated onto PumpSwap.
+     The first hour decides, so this lane is smaller, faster and tighter. */
+  SNIPE_AGE_MIN:  75,     // tradeable as a snipe this long after migration
+  SNIPE_SIZE_PCT: 10,     // smaller clip — these can halve in minutes
+  SNIPE_STOP:    -9,
+  SNIPE_TIME_MIN: 12,     // in and out; a stalled snipe is a failed snipe
+  SNIPE_MAX_M5:   90,     // fresh graduates are allowed a vertical candle
+  SNIPE_SCORE:    56,     // lower bar — recency is the edge, not the score
+
+  /* discipline */
+  REBUY_COOL_MIN: 10,     // no re-entering a name just closed (20 after a loss)
+  LOSS_STREAK:    3,      // this many full-close losses in a row...
+  PAUSE_MIN:      10,     // ...parks new entries for this long
+  AUTO_GAP_MS:    40000,  // built-in entries at most this often
+
   SWAP_FEE:       0.01,   // 1% router/platform fee
   NET_FEE:        0.000005,
-  SCORE_BUY:      64
+  SCORE_BUY:      64,
+  FAST_SCORE:     68      // above this the built-in brain fires between model calls
 };
 
-var LLM_INTERVAL_MS = 45000;
+var LLM_INTERVAL_MS = 40000;
 var STORE_KEY = 'tradoor.book.v2';
 var B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
@@ -110,7 +126,11 @@ var Agent = {
   brainSource: 'heuristic',
   lastLlm: 0,
   logN: 0,
-  lastEquityAt: 0
+  lastEquityAt: 0,
+  cooldowns: {},          // address -> timestamp until which it may not be rebought
+  lossStreak: 0,
+  pausedUntil: 0,
+  lastAutoBuy: 0
 };
 
 /* ------------------------------------------------------------------- log - */
@@ -131,9 +151,17 @@ function buyPressure(p) {
   return p.txns.m5.buys / t;
 }
 
+/* a pair inside the migration-snipe window: a pump.fun coin that graduated
+   onto PumpSwap less than SNIPE_AGE_MIN minutes ago */
+function snipeWindow(p) {
+  return !!p.isMigration && p.ageHours !== null && p.ageHours * 60 <= RULES.SNIPE_AGE_MIN;
+}
+Agent.snipeWindow = snipeWindow;
+
 Agent.score = function (p) {
   var f = {};
   var turnover = p.liqUsd > 0 ? p.vol.h1 / p.liqUsd : 0;
+  var fresh = snipeWindow(p);
 
   f.momentum  = clamp(p.ch.m5 / 14, 0, 1) * 26;
   f.trend     = clamp((p.ch.h1 + 8) / 70, 0, 1) * 14;
@@ -143,35 +171,56 @@ Agent.score = function (p) {
   f.quality   = (p.socials.length ? 5 : 0) + (p.image ? 2 : 0)
               + (p.boosts > 0 ? 4 : 0) + (p.website ? 2 : 0)
               + (p.ageHours !== null && p.ageHours > 1 && p.ageHours < 96 ? 2 : 0);
+  /* the migration window itself is worth something — decaying as it closes */
+  f.fresh = fresh ? (1 - (p.ageHours * 60) / RULES.SNIPE_AGE_MIN) * 8 : 0;
 
-  var score = f.momentum + f.trend + f.volume + f.liquidity + f.pressure + f.quality;
+  var score = f.momentum + f.trend + f.volume + f.liquidity + f.pressure + f.quality + f.fresh;
   var flags = [];
 
   if (p.liqUsd < RULES.MIN_LIQ_USD) { score -= 26; flags.push('liquidity ' + fmtUsd(p.liqUsd) + ' under the floor'); }
-  if (p.ch.h1 > 150)                { score -= 20; flags.push('1h already ' + sgn(p.ch.h1, 0) + ' — late to it'); }
-  if (p.ch.m5 > 40)                 { score -= 12; flags.push('5m candle is vertical — no entry here'); }
+  if (p.ch.h1 > 150 && !fresh)      { score -= 20; flags.push('1h already ' + sgn(p.ch.h1, 0) + ' — late to it'); }
+  if (p.ch.m5 > (fresh ? RULES.SNIPE_MAX_M5 : RULES.MAX_M5))
+                                    { score -= 12; flags.push('5m candle is vertical — no entry here'); }
   if (p.ch.m5 <= 0)                 { score -= 12; flags.push('no 5m impulse'); }
   if (p.ch.h24 < -55)               { score -= 10; flags.push('24h ' + sgn(p.ch.h24, 0)); }
-  if (p.ageHours !== null && p.ageHours < 0.25) { score -= 12; flags.push('under 15 minutes old'); }
-  if (turnover < 0.08)              { score -= 12; flags.push('volume too thin against the pool'); }
+  if (!fresh && p.ageHours !== null && p.ageHours < 0.25) { score -= 12; flags.push('under 15 minutes old'); }
+  if (turnover < 0.08 && !fresh)    { score -= 12; flags.push('volume too thin against the pool'); }
   if (buyPressure(p) < 0.45)        { score -= 10; flags.push('sellers in control on 5m'); }
 
-  return { score: clamp(score, 0, 100), f: f, flags: flags, turnover: turnover, pressure: buyPressure(p) };
+  return { score: clamp(score, 0, 100), f: f, flags: flags, turnover: turnover,
+           pressure: buyPressure(p), fresh: fresh };
 };
 
 /* the hard gate. Scoring can argue about how good a setup is; this decides
    whether it is allowed at all, for the model and the built-in brain alike.
    Returns null when the pair is tradeable, or the reason it is not. */
 function veto(p) {
+  var fresh = snipeWindow(p);
   if (p.liqUsd < RULES.MIN_LIQ_USD)
     return 'liquidity ' + fmtUsd(p.liqUsd) + ' is under the ' + fmtUsd(RULES.MIN_LIQ_USD) + ' floor';
-  if (p.ch.h1 > RULES.MAX_H1)
+  /* a graduate's 1h change is its whole life since migration — that spike is
+     the setup, not the exit. The cap only binds outside the snipe window. */
+  if (!fresh && p.ch.h1 > RULES.MAX_H1)
     return '1h already ' + sgn(p.ch.h1, 0) + ' — that is somebody else’s exit';
-  if (p.ch.m5 > RULES.MAX_M5)
+  if (p.ch.m5 > (fresh ? RULES.SNIPE_MAX_M5 : RULES.MAX_M5))
     return '5m candle is vertical (' + sgn(p.ch.m5, 0) + ') — not chasing it';
   return null;
 }
 Agent.veto = veto;
+
+/* everything that can block an entry, in one place */
+function entryBlock(p) {
+  var now = Date.now();
+  if (Agent.positions.length >= RULES.MAX_POS) return 'book full at ' + RULES.MAX_POS;
+  if (now < Agent.pausedUntil)
+    return 'cooling off after ' + RULES.LOSS_STREAK + ' straight losses (' +
+      Math.ceil((Agent.pausedUntil - now) / 60000) + 'm left)';
+  var held = Agent.positions.some(function (x) { return x.address === p.address; });
+  if (held) return 'already holding it';
+  var cool = Agent.cooldowns[p.address] || 0;
+  if (now < cool) return 'just traded it — ' + Math.ceil((cool - now) / 60000) + 'm cooldown';
+  return veto(p);
+}
 
 Agent.ranked = function () {
   var out = M.pairs.map(function (p) {
@@ -231,13 +280,14 @@ Agent.equityNow = function () {
   return v;
 };
 
-function buy(p, sizeSol, reason, conviction) {
+function buy(p, sizeSol, reason, conviction, lane) {
   var sizeUsd = M.toUsd(sizeSol);
   var imp = impactPct(sizeUsd, p.liqUsd);
   var priority = 0.00025 + Math.random() * 0.0016;
   var spend = sizeSol + RULES.NET_FEE + priority;
   if (spend > Agent.cash) return null;
 
+  var snipe = lane === 'snipe';
   var fillUsd = p.priceUsd * (1 + imp / 100);
   var tokens = M.toUsd(sizeSol * (1 - RULES.SWAP_FEE)) / fillUsd;
 
@@ -248,14 +298,19 @@ function buy(p, sizeSol, reason, conviction) {
      will eat. The SOL target is set on top of that, so the number the tape
      prints is what actually lands in the wallet. */
   var exitCost = RULES.SWAP_FEE * 100 + imp;
-  var targetPct = clamp((RULES.TARGET_SOL / sizeSol) * 100 + exitCost,
-                        RULES.TARGET_MIN_PCT, RULES.TARGET_MAX_PCT);
+  var targetPct = snipe
+    ? clamp((RULES.TARGET_SOL * 0.7 / sizeSol) * 100 + exitCost, 12, 25)
+    : clamp((RULES.TARGET_SOL / sizeSol) * 100 + exitCost,
+            RULES.TARGET_MIN_PCT, RULES.TARGET_MAX_PCT);
 
   var pos = {
     address: p.address, symbol: p.symbol, name: p.name, image: p.image, url: p.url,
     tokens: tokens, costSol: sizeSol, entryUsd: sizeUsd / tokens, lastUsd: p.priceUsd,
     entryAt: Date.now(), peakUsd: p.priceUsd, peakPct: 0, scaled: false, trail: false,
     liqAtEntry: p.liqUsd, reason: reason || '', conviction: conviction || 0,
+    lane: snipe ? 'snipe' : 'swing',
+    stopPct: snipe ? RULES.SNIPE_STOP : RULES.STOP_PCT,
+    timeStopMin: snipe ? RULES.SNIPE_TIME_MIN : RULES.TIME_STOP_MIN,
     exitCost: exitCost, targetPct: targetPct,
     targetSol: sizeSol * (targetPct - exitCost) / 100
   };
@@ -269,9 +324,10 @@ function buy(p, sizeSol, reason, conviction) {
 
   log('exec', 'BUY  ' + sizeSol.toFixed(3) + ' SOL → ' + fmtAmt(tokens) + ' ' + p.symbol +
     ' @ ' + fmtPrice(fillUsd) + ' · impact ' + imp.toFixed(2) + '% · ' + tx.route, p.symbol);
-  log('manage', 'PLAN  ' + p.symbol + ' target +' + targetPct.toFixed(1) + '% ≈ +' +
-    pos.targetSol.toFixed(2) + ' SOL net · scale ' + Math.round(RULES.SCALE_PORTION * 100) +
-    '% at +' + (targetPct * RULES.SCALE_AT).toFixed(1) + '% · stop ' + RULES.STOP_PCT + '%', p.symbol);
+  log('manage', 'PLAN  ' + p.symbol + (snipe ? ' [snipe]' : '') + ' target +' +
+    targetPct.toFixed(1) + '% ≈ +' + pos.targetSol.toFixed(2) + ' SOL net · scale ' +
+    Math.round(RULES.SCALE_PORTION * 100) + '% at +' + (targetPct * RULES.SCALE_AT).toFixed(1) +
+    '% · stop ' + pos.stopPct + '% · time stop ' + pos.timeStopMin + 'm', p.symbol);
   save();
   return pos;
 }
@@ -317,6 +373,21 @@ function sell(pos, portion, reason) {
   if (portion >= 0.999 || pos.tokens <= 0) {
     var i = Agent.positions.indexOf(pos);
     if (i > -1) Agent.positions.splice(i, 1);
+
+    /* discipline: cooldown on the name, and a pause after a losing streak */
+    var coolMin = pnl < 0 ? RULES.REBUY_COOL_MIN * 2 : RULES.REBUY_COOL_MIN;
+    Agent.cooldowns[pos.address] = Date.now() + coolMin * 60000;
+    if (pnl < 0) {
+      Agent.lossStreak++;
+      if (Agent.lossStreak >= RULES.LOSS_STREAK) {
+        Agent.pausedUntil = Date.now() + RULES.PAUSE_MIN * 60000;
+        Agent.lossStreak = 0;
+        log('risk', 'PAUSE ' + RULES.LOSS_STREAK + ' losses in a row — no new entries for ' +
+          RULES.PAUSE_MIN + ' minutes, the tape is not ours right now', null);
+      }
+    } else {
+      Agent.lossStreak = 0;
+    }
   }
   save();
   return pnl;
@@ -350,6 +421,7 @@ function manage() {
       pos.scaled = !!pos.tp1;
       pos.peakPct = 0;
     }
+    if (pos.stopPct === undefined) { pos.stopPct = RULES.STOP_PCT; pos.timeStopMin = RULES.TIME_STOP_MIN; }
 
     var pnlPct = (p.priceUsd / pos.entryUsd - 1) * 100;
     var heldMin = (Date.now() - pos.entryAt) / 60000;
@@ -362,7 +434,13 @@ function manage() {
       sell(pos, 1, 'liquidity guard'); continue;
     }
 
-    if (pnlPct <= RULES.STOP_PCT) { sell(pos, 1, 'stop loss'); continue; }
+    if (pnlPct <= pos.stopPct) { sell(pos, 1, 'stop loss'); continue; }
+
+    /* a scaled winner is never allowed to turn red: once the first slice is
+       banked, the rest exits at breakeven at worst */
+    if (pos.scaled && pnlPct <= pos.exitCost * 0.6) {
+      sell(pos, 1, 'breakeven stop'); continue;
+    }
 
     /* target reached — take the win and free the slot */
     if (pnlPct >= pos.targetPct) { sell(pos, 1, 'target hit'); continue; }
@@ -390,7 +468,7 @@ function manage() {
     }
 
     /* dead money: the slot is worth more than the position */
-    if (heldMin > RULES.TIME_STOP_MIN && pnlPct < pos.exitCost + 2) {
+    if (heldMin > pos.timeStopMin && pnlPct < pos.exitCost + 2) {
       sell(pos, 1, 'time stop'); continue;
     }
   }
@@ -410,6 +488,7 @@ function positionsForModel() {
       valueSol: value,
       targetPct: pos.targetPct || 0,
       scaledOut: !!pos.scaled,
+      lane: pos.lane || 'swing',
       heldMinutes: (Date.now() - pos.entryAt) / 60000
     };
   });
@@ -436,26 +515,26 @@ function applyActions(res, ranked) {
     if (String(a.type).toUpperCase() !== 'BUY') return;
     if (!p) { log('think', 'REJECT model proposed a mint that is not on the board', null); return; }
     if (holding) return;
-    if (Agent.positions.length >= RULES.MAX_POS) {
-      log('think', 'REJECT BUY ' + p.symbol + ' — book already full at ' + RULES.MAX_POS + ' positions', p.symbol);
-      return;
-    }
-    var blocked = veto(p);
+    var blocked = entryBlock(p);
     if (blocked) {
       log('think', 'REJECT BUY ' + p.symbol + ' — ' + blocked, p.symbol);
       return;
     }
+    var snipe = snipeWindow(p);
     var equity = Agent.equityNow();
-    var pctSize = clamp(Number(a.sizePct) || 15, RULES.MIN_SIZE_PCT, RULES.MAX_SIZE_PCT);
+    var pctSize = snipe
+      ? Math.min(clamp(Number(a.sizePct) || RULES.SNIPE_SIZE_PCT, 8, 14), 14)
+      : clamp(Number(a.sizePct) || 15, RULES.MIN_SIZE_PCT, RULES.MAX_SIZE_PCT);
     var size = Math.min(equity * pctSize / 100, Agent.cash - 0.05);
     if (size < 0.12) {
       log('think', 'REJECT BUY ' + p.symbol + ' — only ' + Agent.cash.toFixed(3) + ' SOL free', p.symbol);
       return;
     }
-    log('thesis', 'MODEL ' + p.symbol + ' — 5m ' + sgn(p.ch.m5) + ' · 1h ' + sgn(p.ch.h1) +
+    log('thesis', 'MODEL ' + p.symbol + (snipe ? ' [migration snipe]' : '') + ' — 5m ' +
+      sgn(p.ch.m5) + ' · 1h ' + sgn(p.ch.h1) +
       ' · LP ' + fmtUsd(p.liqUsd) + ' · vol 1h ' + fmtUsd(p.vol.h1) +
       ' · conviction ' + (a.conviction || '?') + '/100 → ' + (a.reason || 'buy'), p.symbol);
-    buy(p, size, a.reason, a.conviction);
+    buy(p, size, a.reason, a.conviction, snipe ? 'snipe' : 'swing');
     acted = true;
   });
 
@@ -472,17 +551,29 @@ function applyActions(res, ranked) {
   return acted;
 }
 
+function takeEntry(r, why, lane) {
+  var snipe = lane === 'snipe';
+  var equity = Agent.equityNow();
+  var size = Math.min(equity * (snipe ? RULES.SNIPE_SIZE_PCT / 100 : 0.20), Agent.cash - 0.05);
+  if (size < 0.12) return false;
+  log('thesis', 'THESIS ' + r.p.symbol + (snipe ? ' [migration snipe]' : '') + ' — 5m ' +
+    sgn(r.p.ch.m5) + ' · 1h ' + sgn(r.p.ch.h1) +
+    ' · LP ' + fmtUsd(r.p.liqUsd) + ' · turnover ×' + r.s.turnover.toFixed(2) +
+    ' · buy pressure ' + (r.s.pressure * 100).toFixed(0) + '% → score ' +
+    r.s.score.toFixed(1) + '/100 · ' + why, r.p.symbol);
+  buy(r.p, size, why, Math.round(r.s.score), lane);
+  Agent.lastAutoBuy = Date.now();
+  return true;
+}
+
 function heuristicDecision(ranked) {
   Agent.brainSource = 'heuristic';
-  if (!ranked.length || Agent.positions.length >= RULES.MAX_POS) return;
-
-  var held = {};
-  Agent.positions.forEach(function (p) { held[p.address] = 1; });
+  if (!ranked.length) return;
+  if (Date.now() - Agent.lastAutoBuy < RULES.AUTO_GAP_MS) return;
 
   var spoke = false;
   for (var i = 0; i < Math.min(ranked.length, 8); i++) {
     var r = ranked[i];
-    if (held[r.p.address]) continue;
 
     /* sorted by score, so once we are under the threshold nothing below qualifies */
     if (r.s.score < RULES.SCORE_BUY) {
@@ -492,21 +583,42 @@ function heuristicDecision(ranked) {
       }
       break;
     }
-    var no = veto(r.p);
+    var no = entryBlock(r.p);
     if (no) {
-      if (!spoke) { spoke = true; log('think', 'PASS  ' + r.p.symbol + ' — ' + no, r.p.symbol); }
+      if (!spoke && no !== 'already holding it') {
+        spoke = true; log('think', 'PASS  ' + r.p.symbol + ' — ' + no, r.p.symbol);
+      }
       continue;
     }
-    var equity = Agent.equityNow();
-    var size = Math.min(equity * 0.20, Agent.cash - 0.05);
-    if (size < 0.12) return;
-    log('thesis', 'THESIS ' + r.p.symbol + ' — 5m ' + sgn(r.p.ch.m5) + ' · 1h ' + sgn(r.p.ch.h1) +
-      ' · LP ' + fmtUsd(r.p.liqUsd) + ' · turnover ×' + r.s.turnover.toFixed(2) +
-      ' · buy pressure ' + (r.s.pressure * 100).toFixed(0) + '% → score ' +
-      r.s.score.toFixed(1) + '/100', r.p.symbol);
-    buy(r.p, size, 'momentum + liquidity filter', Math.round(r.s.score));
+    takeEntry(r, 'momentum + liquidity filter', snipeWindow(r.p) ? 'snipe' : 'swing');
     return;
   }
+}
+
+/* runs every scan, independent of the model cadence. Two fast lanes:
+   the migration snipe (recency is the edge, the model is too slow for it)
+   and a high-conviction momentum entry. One entry per pass, spaced out. */
+function autoEntries(ranked) {
+  if (Date.now() - Agent.lastAutoBuy < RULES.AUTO_GAP_MS) return;
+
+  var snipes = [], strong = [];
+  for (var i = 0; i < ranked.length; i++) {
+    var r = ranked[i];
+    if (snipeWindow(r.p) && r.s.score >= RULES.SNIPE_SCORE && r.s.pressure >= 0.52 &&
+        r.p.ch.m5 > 0 && !entryBlock(r.p)) snipes.push(r);
+    else if (r.s.score >= RULES.FAST_SCORE && !entryBlock(r.p)) strong.push(r);
+  }
+
+  if (snipes.length) {
+    snipes.sort(function (a, b) { return a.p.ageHours - b.p.ageHours; });   // freshest first
+    var s = snipes[0];
+    log('alert', 'SNIPE ' + s.p.symbol + ' graduated to PumpSwap ' +
+      Math.round(s.p.ageHours * 60) + 'm ago · LP ' + fmtUsd(s.p.liqUsd) +
+      ' · buys ' + s.p.txns.m5.buys + '/' + s.p.txns.m5.sells + ' on 5m', s.p.symbol);
+    takeEntry(s, 'fresh PumpSwap migration', 'snipe');
+    return;
+  }
+  if (strong.length) takeEntry(strong[0], 'high-conviction momentum', 'swing');
 }
 
 function askModel(ranked) {
@@ -556,7 +668,8 @@ function askModel(ranked) {
     Agent.brainSource = 'heuristic';
     heuristicDecision(ranked);
   }).then(function () {
-    Agent.brainState = Agent.positions.length >= RULES.MAX_POS ? 'fully allocated'
+    Agent.brainState = Date.now() < Agent.pausedUntil ? 'cooling off'
+      : Agent.positions.length >= RULES.MAX_POS ? 'fully allocated'
       : Agent.positions.length ? 'in position' : 'hunting';
     save();
   });
@@ -570,6 +683,7 @@ Agent.tick = function () {
   var ranked = Agent.ranked();
   Agent.scans++;
   manage();
+  autoEntries(ranked);
 
   /* heuristic watchlist between model calls */
   if (Agent.brainSource !== 'model' || !Agent.watch.length) {
@@ -632,7 +746,8 @@ function save() {
       logs: Agent.logs.slice(-120), equity: Agent.equity.slice(-600), archive: Agent.archive.slice(-14),
       peak: Agent.peak, maxDD: Agent.maxDD, fees: Agent.fees, nClosed: Agent.nClosed,
       nWins: Agent.nWins, nTx: Agent.nTx, realized: Agent.realized, scans: Agent.scans,
-      llmCalls: Agent.llmCalls, model: Agent.model, logN: Agent.logN
+      llmCalls: Agent.llmCalls, model: Agent.model, logN: Agent.logN,
+      cooldowns: Agent.cooldowns, lossStreak: Agent.lossStreak, pausedUntil: Agent.pausedUntil
     }));
   } catch (e) { /* private mode, quota — the agent just forgets on reload */ }
 }
@@ -644,8 +759,10 @@ function restore() {
   try {
     var s = JSON.parse(raw);
     if (!s || s.day !== today()) { archiveFrom(s); return false; }
-    ['startedAt','cash','peak','maxDD','fees','nClosed','nWins','nTx','realized','scans','llmCalls','model','logN']
+    ['startedAt','cash','peak','maxDD','fees','nClosed','nWins','nTx','realized','scans','llmCalls','model','logN',
+     'lossStreak','pausedUntil']
       .forEach(function (k) { if (s[k] !== undefined) Agent[k] = s[k]; });
+    if (s.cooldowns && typeof s.cooldowns === 'object') Agent.cooldowns = s.cooldowns;
     ['positions','closed','txs','logs','equity','archive'].forEach(function (k) {
       if (Array.isArray(s[k])) Agent[k] = s[k];
     });
@@ -679,6 +796,7 @@ function rollDay() {
   Agent.peak = RULES.START_SOL; Agent.maxDD = 0; Agent.fees = 0;
   Agent.nClosed = 0; Agent.nWins = 0; Agent.nTx = 0; Agent.realized = 0;
   Agent.scans = 0; Agent.llmCalls = 0; Agent.thesis = '';
+  Agent.cooldowns = {}; Agent.lossStreak = 0; Agent.pausedUntil = 0;
   log('boot', 'BOOT  new session · wallet reset to ' + RULES.START_SOL.toFixed(3) + ' SOL', null);
   save();
 }
@@ -704,7 +822,9 @@ Agent.init = function () {
     log('boot', 'BOOT  risk limits — max ' + RULES.MAX_POS + ' positions · stop ' + RULES.STOP_PCT +
       '% · trail ' + RULES.TRAIL_PCT + '% · liquidity floor ' + fmtUsd(RULES.MIN_LIQ_USD) +
       ' · board floor $100K market cap', null);
-    log('boot', 'BOOT  scanning Solana pairs from DEX Screener · decisions by the model on fal.ai', null);
+    log('boot', 'BOOT  snipe lane armed — pump.fun graduates get ' + RULES.SNIPE_SIZE_PCT +
+      '% clips, stop ' + RULES.SNIPE_STOP + '%, ' + RULES.SNIPE_TIME_MIN + 'm time stop', null);
+    log('boot', 'BOOT  scanning DEX Screener + the pump.fun launchpad · decisions by the model on fal.ai', null);
   } else {
     log('boot', 'BOOT  session restored · ' + Agent.positions.length + ' open · ' +
       Agent.nTx + ' transactions on the tape', null);
