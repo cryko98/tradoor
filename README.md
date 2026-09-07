@@ -123,7 +123,7 @@ The point is a steady stream of small realised wins rather than one big number. 
 that the market is real: a strategy being *aimed* at consistent profit is not the same
 as it being profitable, and losing sessions happen.
 
-The rulebook is in `agent.js` under `RULES`, and the terminal on the site documents the
+The rulebook is in `core.js` under `RULES`, and the terminal on the site documents the
 same numbers — change one, change the other.
 
 ## Session and state
