@@ -4,7 +4,7 @@
    live DEX Screener prices and enforces the risk rules that the model is not
    allowed to argue with.
 
-   The wallet is paper: 10 SOL, simulated fills with real slippage maths and
+   The wallet is paper: 1 ETH, simulated fills with real slippage maths and
    real fees, marked to real market prices. Nothing touches a chain.
 ============================================================================ */
 (function (global) {
@@ -15,18 +15,18 @@ var M = global.TradoorMarket;
 /* --------------------------------------------------------------- rulebook */
 /* ----------------------------------------------------------------------------
    The book is run for a steady stream of small realised wins, not for
-   moonshots. Every position carries a SOL target — 0.20 to 0.50 net after
+   moonshots. Every position carries an ETH target — 0.04 to 0.1 net after
    fees and slippage — which is turned into a percentage against the size
    actually bought. Half comes off early, the rest runs on a tight trail.
 ---------------------------------------------------------------------------- */
 var RULES = {
-  START_SOL:      10,
+  START_ETH:      1,
   MAX_POS:        5,
   MIN_SIZE_PCT:   12,
   MAX_SIZE_PCT:   25,
-  MIN_LIQ_USD:    15000,
+  MIN_LIQ_USD:    8000,
 
-  TARGET_SOL:     0.55,   // what a normal winner is worth, net
+  TARGET_ETH:     0.055,   // what a normal winner is worth, net
   TARGET_MIN_PCT: 15,     // never take a trade for less than this move
   TARGET_MAX_PCT: 60,     // never sit there waiting for more than this
   SCALE_AT:       0.5,    // scale out at half the target...
@@ -42,13 +42,13 @@ var RULES = {
   TIME_STOP_MIN:  35,     // dead money gets recycled
   RUG_LIQ_DROP:   0.40,
 
-  /* the migration snipe: a pump.fun coin that just graduated onto PumpSwap.
+  /* the launch snipe: a pair that was just listed on Robinhood Chain.
      The first hour decides, so this lane is smaller, faster and tighter. */
-  SNIPE_AGE_MIN:  75,     // tradeable as a snipe this long after migration
+  SNIPE_AGE_MIN:  75,     // tradeable as a snipe this long after listing
   SNIPE_SIZE_PCT: 10,     // smaller clip — these can halve in minutes
   SNIPE_STOP:    -9,
   SNIPE_TIME_MIN: 15,     // in and out; a stalled snipe is a failed snipe
-  SNIPE_MAX_M5:   90,     // fresh graduates are allowed a vertical candle
+  SNIPE_MAX_M5:   90,     // fresh listings are allowed a vertical candle
   SNIPE_SCORE:    56,     // lower bar — recency is the edge, not the score
 
   /* discipline */
@@ -64,14 +64,16 @@ var RULES = {
 };
 
 var LLM_INTERVAL_MS = 40000;
-var STORE_KEY = 'tradoor.book.v2';
-var B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+var STORE_KEY = 'tradoor.book.v3';
+var HEX = '0123456789abcdef';
 
-function sig(n) {
+/* Robinhood Chain is an EVM L2, so everything is 0x-flavoured */
+function hex(n) {
   var s = '';
-  for (var i = 0; i < (n || 88); i++) s += B58[(Math.random() * B58.length) | 0];
+  for (var i = 0; i < n; i++) s += HEX[(Math.random() * 16) | 0];
   return s;
 }
+function sig() { return '0x' + hex(64); }
 function today() { return new Date().toISOString().slice(0, 10); }
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function fmtAmt(n) {
@@ -105,7 +107,7 @@ var Agent = {
 
   day: today(),
   startedAt: Date.now(),
-  cash: RULES.START_SOL,
+  cash: RULES.START_ETH,
   positions: [],
   closed: [],
   txs: [],
@@ -113,7 +115,7 @@ var Agent = {
   watch: [],
   equity: [],
   archive: [],
-  peak: RULES.START_SOL,
+  peak: RULES.START_ETH,
   maxDD: 0,
   fees: 0,
   nClosed: 0,
@@ -153,10 +155,10 @@ function buyPressure(p) {
   return p.txns.m5.buys / t;
 }
 
-/* a pair inside the migration-snipe window: a pump.fun coin that graduated
-   onto PumpSwap less than SNIPE_AGE_MIN minutes ago */
+/* a pair inside the launch-snipe window: a pair that hit Robinhood Chain
+   less than SNIPE_AGE_MIN minutes ago */
 function snipeWindow(p) {
-  return !!p.isMigration && p.ageHours !== null && p.ageHours * 60 <= RULES.SNIPE_AGE_MIN;
+  return !!p.isFresh && p.ageHours !== null && p.ageHours * 60 <= RULES.SNIPE_AGE_MIN;
 }
 Agent.snipeWindow = snipeWindow;
 
@@ -173,7 +175,7 @@ Agent.score = function (p) {
   f.quality   = (p.socials.length ? 5 : 0) + (p.image ? 2 : 0)
               + (p.boosts > 0 ? 4 : 0) + (p.website ? 2 : 0)
               + (p.ageHours !== null && p.ageHours > 1 && p.ageHours < 96 ? 2 : 0);
-  /* the migration window itself is worth something — decaying as it closes */
+  /* the launch window itself is worth something — decaying as it closes */
   f.fresh = fresh ? (1 - (p.ageHours * 60) / RULES.SNIPE_AGE_MIN) * 8 : 0;
 
   var score = f.momentum + f.trend + f.volume + f.liquidity + f.pressure + f.quality + f.fresh;
@@ -200,7 +202,7 @@ function veto(p) {
   var fresh = snipeWindow(p);
   if (p.liqUsd < RULES.MIN_LIQ_USD)
     return 'liquidity ' + fmtUsd(p.liqUsd) + ' is under the ' + fmtUsd(RULES.MIN_LIQ_USD) + ' floor';
-  /* a graduate's 1h change is its whole life since migration — that spike is
+  /* a fresh listing's 1h change is its whole life on the chain — that spike
      the setup, not the exit. The cap only binds outside the snipe window. */
   if (!fresh && p.ch.h1 > RULES.MAX_H1)
     return '1h already ' + sgn(p.ch.h1, 0) + ' — that is somebody else’s exit';
@@ -242,11 +244,11 @@ function impactPct(sizeUsd, liqUsd) {
   if (!liqUsd) return 45;
   return Math.min(45, (sizeUsd / (liqUsd * 0.5 + sizeUsd)) * 100 * 1.35);
 }
-var ROUTES = ['Jupiter v6', 'Raydium CLMM', 'Meteora DLMM', 'Orca Whirlpool', 'pump.fun AMM'];
+var ROUTES = ['Uniswap v4', 'Uniswap v3', '0x Router', '1inch', 'Matcha'];
 
 function recordTx(o) {
   var tx = {
-    sig: sig(88),
+    sig: sig(),
     slot: 0,
     t: Date.now(),
     side: o.side,
@@ -259,13 +261,13 @@ function recordTx(o) {
     impact: o.impact,
     fee: o.fee,
     priority: o.priority,
-    cu: 60000 + ((Math.random() * 90000) | 0),
+    cu: 120000 + ((Math.random() * 230000) | 0),      // gas used by the swap
     route: o.route,
     pnl: o.pnl === undefined ? null : o.pnl,
     status: 'confirmed'
   };
-  /* a plausible slot number: mainnet does about 2.5 per second */
-  tx.slot = 372000000 + Math.floor((Date.now() - 1767225600000) / 400);
+  /* a plausible block number: the L2 seals roughly one block a second */
+  tx.slot = 21400000 + Math.floor((Date.now() - 1767225600000) / 1000);
   Agent.txs.unshift(tx);
   Agent.nTx++;
   if (Agent.txs.length > 60) Agent.txs.pop();
@@ -277,7 +279,7 @@ Agent.equityNow = function () {
   Agent.positions.forEach(function (pos) {
     var p = M.byAddress[pos.address];
     var priceUsd = p ? p.priceUsd : pos.lastUsd;
-    v += M.toSol(pos.tokens * priceUsd);
+    v += M.toEth(pos.tokens * priceUsd);
   });
   return v;
 };
@@ -285,7 +287,7 @@ Agent.equityNow = function () {
 function buy(p, sizeSol, reason, conviction, lane) {
   var sizeUsd = M.toUsd(sizeSol);
   var imp = impactPct(sizeUsd, p.liqUsd);
-  var priority = 0.00025 + Math.random() * 0.0016;
+  var priority = 0.00001 + Math.random() * 0.00003;
   var spend = sizeSol + RULES.NET_FEE + priority;
   if (spend > Agent.cash) return null;
 
@@ -297,24 +299,24 @@ function buy(p, sizeSol, reason, conviction, lane) {
   Agent.fees += RULES.NET_FEE + priority + sizeSol * RULES.SWAP_FEE;
 
   /* what it costs to get back out: the router fee plus the slippage the exit
-     will eat. The SOL target is set on top of that, so the number the tape
+     will eat. The ETH target is set on top of that, so the number the tape
      prints is what actually lands in the wallet. */
   var exitCost = RULES.SWAP_FEE * 100 + imp;
   var targetPct = snipe
-    ? clamp((RULES.TARGET_SOL * 0.85 / sizeSol) * 100 + exitCost, 18, 45)
-    : clamp((RULES.TARGET_SOL / sizeSol) * 100 + exitCost,
+    ? clamp((RULES.TARGET_ETH * 0.85 / sizeSol) * 100 + exitCost, 18, 45)
+    : clamp((RULES.TARGET_ETH / sizeSol) * 100 + exitCost,
             RULES.TARGET_MIN_PCT, RULES.TARGET_MAX_PCT);
 
   var pos = {
     address: p.address, symbol: p.symbol, name: p.name, image: p.image, url: p.url,
-    tokens: tokens, costSol: sizeSol, entryUsd: sizeUsd / tokens, lastUsd: p.priceUsd,
+    tokens: tokens, costEth: sizeSol, entryUsd: sizeUsd / tokens, lastUsd: p.priceUsd,
     entryAt: Date.now(), peakUsd: p.priceUsd, peakPct: 0, scaled: false, trail: false,
     liqAtEntry: p.liqUsd, reason: reason || '', conviction: conviction || 0,
     lane: snipe ? 'snipe' : 'swing',
     stopPct: snipe ? RULES.SNIPE_STOP : RULES.STOP_PCT,
     timeStopMin: snipe ? RULES.SNIPE_TIME_MIN : RULES.TIME_STOP_MIN,
     exitCost: exitCost, targetPct: targetPct,
-    targetSol: sizeSol * (targetPct - exitCost) / 100
+    targetEth: sizeSol * (targetPct - exitCost) / 100
   };
   Agent.positions.push(pos);
 
@@ -324,10 +326,10 @@ function buy(p, sizeSol, reason, conviction, lane) {
     priority: priority, route: ROUTES[(Math.random() * ROUTES.length) | 0]
   });
 
-  log('exec', 'BUY  ' + sizeSol.toFixed(3) + ' SOL → ' + fmtAmt(tokens) + ' ' + p.symbol +
+  log('exec', 'BUY  ' + sizeSol.toFixed(3) + ' ETH → ' + fmtAmt(tokens) + ' ' + p.symbol +
     ' @ ' + fmtPrice(fillUsd) + ' · impact ' + imp.toFixed(2) + '% · ' + tx.route, p.symbol);
   log('manage', 'PLAN  ' + p.symbol + (snipe ? ' [snipe]' : '') + ' target +' +
-    targetPct.toFixed(1) + '% ≈ +' + pos.targetSol.toFixed(2) + ' SOL net · scale ' +
+    targetPct.toFixed(1) + '% ≈ +' + pos.targetEth.toFixed(3) + ' ETH net · scale ' +
     Math.round(RULES.SCALE_PORTION * 100) + '% at +' + (targetPct * RULES.SCALE_AT).toFixed(1) +
     '% · stop ' + pos.stopPct + '% · time stop ' + pos.timeStopMin + 'm', p.symbol);
   save();
@@ -340,15 +342,15 @@ function sell(pos, portion, reason) {
   var tokens = pos.tokens * portion;
   var grossUsd = tokens * priceUsd;
   var imp = impactPct(grossUsd, p ? p.liqUsd : grossUsd * 4);
-  var priority = 0.00025 + Math.random() * 0.0016;
-  var outSol = M.toSol(grossUsd * (1 - imp / 100) * (1 - RULES.SWAP_FEE));
-  var basis = pos.costSol * portion;
+  var priority = 0.00001 + Math.random() * 0.00003;
+  var outSol = M.toEth(grossUsd * (1 - imp / 100) * (1 - RULES.SWAP_FEE));
+  var basis = pos.costEth * portion;
   var pnl = outSol - basis;
 
   Agent.cash += outSol - RULES.NET_FEE - priority;
-  Agent.fees += RULES.NET_FEE + priority + M.toSol(grossUsd) * RULES.SWAP_FEE;
+  Agent.fees += RULES.NET_FEE + priority + M.toEth(grossUsd) * RULES.SWAP_FEE;
   pos.tokens -= tokens;
-  pos.costSol -= basis;
+  pos.costEth -= basis;
 
   recordTx({
     side: 'SELL', symbol: pos.symbol, address: pos.address, url: pos.url, sol: outSol,
@@ -368,8 +370,8 @@ function sell(pos, portion, reason) {
   Agent.realized += pnl;
 
   log(pnl >= 0 ? 'win' : 'loss',
-    'SELL ' + fmtAmt(tokens) + ' ' + pos.symbol + ' → ' + outSol.toFixed(3) + ' SOL · ' +
-    (pnl >= 0 ? '+' : '') + pnl.toFixed(3) + ' SOL (' + sgn(rec.pct * 100) + ') · ' + reason,
+    'SELL ' + fmtAmt(tokens) + ' ' + pos.symbol + ' → ' + outSol.toFixed(3) + ' ETH · ' +
+    (pnl >= 0 ? '+' : '') + pnl.toFixed(3) + ' ETH (' + sgn(rec.pct * 100) + ') · ' + reason,
     pos.symbol);
 
   if (portion >= 0.999 || pos.tokens <= 0) {
@@ -417,9 +419,9 @@ function manage() {
     /* backwards compatibility with a book saved under the old rulebook */
     if (pos.targetPct === undefined) {
       pos.exitCost = RULES.SWAP_FEE * 100 + 1.5;
-      pos.targetPct = clamp((RULES.TARGET_SOL / Math.max(pos.costSol, 0.01)) * 100 + pos.exitCost,
+      pos.targetPct = clamp((RULES.TARGET_ETH / Math.max(pos.costEth, 0.01)) * 100 + pos.exitCost,
                             RULES.TARGET_MIN_PCT, RULES.TARGET_MAX_PCT);
-      pos.targetSol = pos.costSol * (pos.targetPct - pos.exitCost) / 100;
+      pos.targetEth = pos.costEth * (pos.targetPct - pos.exitCost) / 100;
       pos.scaled = !!pos.tp1;
       pos.peakPct = 0;
     }
@@ -494,13 +496,13 @@ function positionsForModel() {
   return Agent.positions.map(function (pos) {
     var p = M.byAddress[pos.address];
     var mark = p ? p.priceUsd : pos.lastUsd;
-    var value = M.toSol(pos.tokens * mark);
+    var value = M.toEth(pos.tokens * mark);
     return {
       symbol: pos.symbol, address: pos.address,
       entryUsd: pos.entryUsd, markUsd: mark,
       pnlPct: (mark / pos.entryUsd - 1) * 100,
-      pnlSol: value - pos.costSol,
-      valueSol: value,
+      pnlEth: value - pos.costEth,
+      valueEth: value,
       targetPct: pos.targetPct || 0,
       scaledOut: !!pos.scaled,
       lane: pos.lane || 'swing',
@@ -540,12 +542,12 @@ function applyActions(res, ranked) {
     var pctSize = snipe
       ? Math.min(clamp(Number(a.sizePct) || RULES.SNIPE_SIZE_PCT, 8, 14), 14)
       : clamp(Number(a.sizePct) || 15, RULES.MIN_SIZE_PCT, RULES.MAX_SIZE_PCT);
-    var size = Math.min(equity * pctSize / 100, Agent.cash - 0.05);
-    if (size < 0.12) {
-      log('think', 'REJECT BUY ' + p.symbol + ' — only ' + Agent.cash.toFixed(3) + ' SOL free', p.symbol);
+    var size = Math.min(equity * pctSize / 100, Agent.cash - 0.005);
+    if (size < 0.012) {
+      log('think', 'REJECT BUY ' + p.symbol + ' — only ' + Agent.cash.toFixed(3) + ' ETH free', p.symbol);
       return;
     }
-    log('thesis', 'MODEL ' + p.symbol + (snipe ? ' [migration snipe]' : '') + ' — 5m ' +
+    log('thesis', 'MODEL ' + p.symbol + (snipe ? ' [launch snipe]' : '') + ' — 5m ' +
       sgn(p.ch.m5) + ' · 1h ' + sgn(p.ch.h1) +
       ' · LP ' + fmtUsd(p.liqUsd) + ' · vol 1h ' + fmtUsd(p.vol.h1) +
       ' · conviction ' + (a.conviction || '?') + '/100 → ' + (a.reason || 'buy'), p.symbol);
@@ -569,9 +571,9 @@ function applyActions(res, ranked) {
 function takeEntry(r, why, lane) {
   var snipe = lane === 'snipe';
   var equity = Agent.equityNow();
-  var size = Math.min(equity * (snipe ? RULES.SNIPE_SIZE_PCT / 100 : 0.20), Agent.cash - 0.05);
-  if (size < 0.12) return false;
-  log('thesis', 'THESIS ' + r.p.symbol + (snipe ? ' [migration snipe]' : '') + ' — 5m ' +
+  var size = Math.min(equity * (snipe ? RULES.SNIPE_SIZE_PCT / 100 : 0.20), Agent.cash - 0.005);
+  if (size < 0.012) return false;
+  log('thesis', 'THESIS ' + r.p.symbol + (snipe ? ' [launch snipe]' : '') + ' — 5m ' +
     sgn(r.p.ch.m5) + ' · 1h ' + sgn(r.p.ch.h1) +
     ' · LP ' + fmtUsd(r.p.liqUsd) + ' · turnover ×' + r.s.turnover.toFixed(2) +
     ' · buy pressure ' + (r.s.pressure * 100).toFixed(0) + '% → score ' +
@@ -611,7 +613,7 @@ function heuristicDecision(ranked) {
 }
 
 /* runs every scan, independent of the model cadence. Two fast lanes:
-   the migration snipe (recency is the edge, the model is too slow for it)
+   the launch snipe (recency is the edge, the model is too slow for it)
    and a high-conviction momentum entry. One entry per pass, spaced out. */
 function autoEntries(ranked) {
   if (Date.now() - Agent.lastAutoBuy < RULES.AUTO_GAP_MS) return;
@@ -627,10 +629,10 @@ function autoEntries(ranked) {
   if (snipes.length) {
     snipes.sort(function (a, b) { return a.p.ageHours - b.p.ageHours; });   // freshest first
     var s = snipes[0];
-    log('alert', 'SNIPE ' + s.p.symbol + ' graduated to PumpSwap ' +
+    log('alert', 'SNIPE ' + s.p.symbol + ' listed on Robinhood Chain ' +
       Math.round(s.p.ageHours * 60) + 'm ago · LP ' + fmtUsd(s.p.liqUsd) +
       ' · buys ' + s.p.txns.m5.buys + '/' + s.p.txns.m5.sells + ' on 5m', s.p.symbol);
-    takeEntry(s, 'fresh PumpSwap migration', 'snipe');
+    takeEntry(s, 'fresh Robinhood Chain listing', 'snipe');
     return;
   }
   if (strong.length) takeEntry(strong[0], 'high-conviction momentum', 'swing');
@@ -641,7 +643,7 @@ function askModel(ranked) {
   var payload = {
     equity: Agent.equityNow(),
     cash: Agent.cash,
-    pnlPct: (Agent.equityNow() / RULES.START_SOL - 1) * 100,
+    pnlPct: (Agent.equityNow() / RULES.START_ETH - 1) * 100,
     positions: positionsForModel(),
     candidates: ranked.slice(0, 14).map(function (r) { return r.p; })
   };
@@ -743,7 +745,7 @@ Agent.stats = function () {
   });
   return {
     equity: eq, cash: Agent.cash,
-    pnl: eq - RULES.START_SOL, pnlPct: eq / RULES.START_SOL - 1,
+    pnl: eq - RULES.START_ETH, pnlPct: eq / RULES.START_ETH - 1,
     realized: Agent.realized, trades: Agent.nTx, closed: Agent.nClosed, wins: Agent.nWins,
     winRate: Agent.nClosed ? Agent.nWins / Agent.nClosed : 0,
     best: best, worst: worst, fees: Agent.fees, maxDD: Agent.maxDD,
@@ -788,11 +790,11 @@ function restore() {
 
 function archiveFrom(s) {
   if (!s || !s.day) return;
-  var close = s.equity && s.equity.length ? s.equity[s.equity.length - 1][1] : RULES.START_SOL;
+  var close = s.equity && s.equity.length ? s.equity[s.equity.length - 1][1] : RULES.START_ETH;
   Agent.archive = (Array.isArray(s.archive) ? s.archive : []).concat([{
     date: s.day,
     close: close,
-    pnlPct: close / RULES.START_SOL - 1,
+    pnlPct: close / RULES.START_ETH - 1,
     trades: s.nTx || 0,
     winRate: s.nClosed ? (s.nWins || 0) / s.nClosed : 0
   }]).slice(-14);
@@ -806,24 +808,24 @@ function rollDay() {
   });
   Agent.day = today();
   Agent.startedAt = Date.now();
-  Agent.cash = RULES.START_SOL;
+  Agent.cash = RULES.START_ETH;
   Agent.positions = []; Agent.closed = []; Agent.txs = []; Agent.equity = [];
-  Agent.peak = RULES.START_SOL; Agent.maxDD = 0; Agent.fees = 0;
+  Agent.peak = RULES.START_ETH; Agent.maxDD = 0; Agent.fees = 0;
   Agent.nClosed = 0; Agent.nWins = 0; Agent.nTx = 0; Agent.realized = 0;
   Agent.scans = 0; Agent.llmCalls = 0; Agent.thesis = '';
   Agent.cooldowns = {}; Agent.lossStreak = 0; Agent.pausedUntil = 0;
-  log('boot', 'BOOT  new session · wallet reset to ' + RULES.START_SOL.toFixed(3) + ' SOL', null);
+  log('boot', 'BOOT  new session · wallet reset to ' + RULES.START_ETH.toFixed(3) + ' ETH', null);
   save();
 }
 
 /* the paper wallet's address — generated once per browser, then kept */
 function walletAddress() {
-  var k = 'tradoor.wallet';
+  var k = 'tradoor.wallet.evm';
   try {
     var w = localStorage.getItem(k);
     if (w) return w;
   } catch (e) {}
-  var w2 = 'Trdr' + sig(40);
+  var w2 = '0x7d00' + hex(36);
   try { localStorage.setItem(k, w2); } catch (e) {}
   return w2;
 }
@@ -832,14 +834,14 @@ Agent.init = function () {
   Agent.wallet = walletAddress();
   var restored = restore();
   if (!restored) {
-    log('boot', 'BOOT  Tradoor online · paper wallet funded with 10.000 SOL', null);
-    log('boot', 'BOOT  objective — bank 0.4 to 1 SOL a trade, and let the runner stretch it. No bag-holding.', null);
+    log('boot', 'BOOT  Tradoor online · paper wallet funded with 1.000 ETH', null);
+    log('boot', 'BOOT  objective — bank 0.04 to 0.1 ETH a trade, and let the runner stretch it. No bag-holding.', null);
     log('boot', 'BOOT  risk limits — max ' + RULES.MAX_POS + ' positions · stop ' + RULES.STOP_PCT +
       '% · trail ' + RULES.TRAIL_PCT + '% · liquidity floor ' + fmtUsd(RULES.MIN_LIQ_USD) +
-      ' · board floor $100K market cap', null);
-    log('boot', 'BOOT  snipe lane armed — pump.fun graduates get ' + RULES.SNIPE_SIZE_PCT +
+      ' · board floor $20K market cap', null);
+    log('boot', 'BOOT  snipe lane armed — fresh listings get ' + RULES.SNIPE_SIZE_PCT +
       '% clips, stop ' + RULES.SNIPE_STOP + '%, ' + RULES.SNIPE_TIME_MIN + 'm time stop', null);
-    log('boot', 'BOOT  scanning DEX Screener + the pump.fun launchpad · decisions by the model on fal.ai', null);
+    log('boot', 'BOOT  scanning Robinhood Chain on DEX Screener · decisions by the model on fal.ai', null);
   } else {
     log('boot', 'BOOT  session restored · ' + Agent.positions.length + ' open · ' +
       Agent.nTx + ' transactions on the tape', null);
