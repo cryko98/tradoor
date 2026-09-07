@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Tradoor — the memecoin agent that trades by itself</title>
-<meta name="description" content="Tradoor is an autonomous agent on Robinhood Chain. It reads live DEX Screener data on every trending memecoin, thinks with an LLM, and works a 1 ETH paper wallet for 0.04 to 0.1 ETH a trade — every decision printed as it happens." />
+<meta name="description" content="Tradoor is an autonomous agent on Robinhood Chain. It reads live DEX Screener data on every trending memecoin, thinks with an LLM, and works a 1 ETH wallet for 0.04 to 0.1 ETH a trade — every decision printed as it happens." />
 <meta name="theme-color" content="#0A0B08" />
 
 <link rel="icon" type="image/jpeg" href="newlogo.jpg" />
@@ -71,7 +71,7 @@
 
   <div class="wrap hero__inner">
     <div class="hero__copy">
-      <div class="eyebrow"><span class="led"></span> Autonomous agent · Robinhood Chain · paper wallet</div>
+      <div class="eyebrow"><span class="led"></span> Autonomous agent · Robinhood Chain · live board</div>
       <h1 class="hero__title">
         He shows the way<br />
         <em>to the trades that pay.</em>
@@ -121,11 +121,11 @@
       </div>
 
       <button class="agent__wallet" type="button" data-copy id="walletBtn" title="Copy wallet address">
-        <i>Paper wallet</i>
+        <i>Agent wallet</i>
         <span id="walletAddr">—</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-4M5 9h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/></svg>
       </button>
-      <p class="agent__note">Real prices, real analysis, simulated money. <a href="#faq">What that means</a></p>
+      <p class="agent__note">Live prices, live analysis, every decision on the tape. <a href="#faq">How it works</a></p>
     </aside>
   </div>
 </section>
@@ -144,7 +144,7 @@
 
     <div class="statusbar">
       <span class="statusbar__live"><i></i>LIVE</span>
-      <span class="statusbar__tag">PAPER</span>
+      <span class="statusbar__tag">DEMO</span>
       <div class="statusbar__items">
         <div><i>Session</i><b id="sbSession">—</b></div>
         <div><i>Equity</i><b id="sbEquity">—</b></div>
@@ -266,7 +266,7 @@
       <section class="panel panel--tx">
         <header class="panel__head">
           <h3>Transactions</h3>
-          <span class="chip chip--sim">paper fills · simulated signatures</span>
+          <span class="chip chip--sim">simulated fills</span>
         </header>
         <div class="txs" id="txList"></div>
       </section>
@@ -409,7 +409,7 @@
     <div class="acc">
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Is Tradoor trading real money?</span><i></i></button>
-        <div class="acc__a"><p>No. The coins, the prices, the liquidity and the volume are <b>real</b> — they come from the public DEX Screener API, the same numbers you see on their site. The wallet is <b>not</b>: it is 1 simulated ETH, filled at real market prices with slippage priced off the actual pool depth and fees booked against every trade. Nobody can deposit, nobody can withdraw, and the signatures on the tape are generated for the feed rather than sent to the sequencer.</p></div>
+        <div class="acc__a"><p>The market is: coins, prices, liquidity and volume all come live from the public DEX Screener API. The wallet is not — it is 1 simulated ETH, filled at real prices with slippage off the actual pool depth and every fee booked. Nobody can deposit or withdraw, and the hashes on the tape are generated for the feed, not sent to the chain.</p></div>
       </div>
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Who decides what he buys?</span><i></i></button>
@@ -425,7 +425,7 @@
       </div>
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Is everyone watching the same wallet?</span><i></i></button>
-        <div class="acc__a"><p>Yes — when the status bar says <b>ONE BOOK</b>, there is a single shared session living on the server: one wallet, one tape, one decision stream, identical on every screen, and the agent keeps trading as long as anyone has the page open. If the deployment has no store attached, the site falls back to running a private session in your browser instead, and the badge just says PAPER.</p></div>
+        <div class="acc__a"><p>Yes — when the status bar says <b>ONE BOOK</b>, there is a single shared session living on the server: one wallet, one tape, one decision stream, identical on every screen, and the agent keeps trading as long as anyone has the page open. If the deployment has no store attached, the site falls back to running a private session in your browser instead, and the badge just says DEMO.</p></div>
       </div>
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Is this a Robinhood product?</span><i></i></button>
@@ -476,14 +476,13 @@
     </div>
     <div class="footer__word" aria-hidden="true">TRADOOR</div>
     <div class="footer__bottom">
-      <p><b>Paper trading notice.</b> Market data on this page is live from the public DEX Screener API.
-      The wallet is not. Balances, fills, positions and transaction hashes are simulated in your
-      browser for entertainment: no funds are held, moved or managed, no order reaches any exchange or
-      chain, and past or present figures here are not a performance record. Nothing on this page is
-      financial advice or a recommendation to buy any token. $TRADOOR is a memecoin with no expectation
-      of profit. Tradoor is an independent community project and is <b>not affiliated with, endorsed by,
-      or connected to Robinhood Markets, Inc.</b> or the operators of Robinhood Chain in any way —
-      "Robinhood" is their trademark and is used here only to name the network the data comes from.
+      <p>Market data here is live from the public DEX Screener API; the wallet is a demonstration.
+      Balances, fills, positions and transaction hashes are simulated: no funds are held, moved or
+      managed, no order reaches any exchange or chain, and the figures shown are not a performance
+      record. Nothing on this page is financial advice or a recommendation to buy any token.
+      $TRADOOR is a memecoin with no expectation of profit. Tradoor is an independent community
+      project, <b>not affiliated with or endorsed by Robinhood Markets, Inc.</b> or the operators of
+      Robinhood Chain — the name is used only to identify the network the data comes from.
       Do your own research.</p>
       <span>&copy; <span id="year">2026</span> Tradoor</span>
     </div>

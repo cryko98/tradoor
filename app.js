@@ -667,7 +667,7 @@ function renderHeader(st) {
   $('#sbSol').textContent = M.ethUsd ? '$' + M.ethUsd.toFixed(2) : '—';
   $('#sbBrain').textContent = st.source === 'model' ? (st.model || 'model') : 'built-in scoring';
   var tag = $('.statusbar__tag');
-  if (tag) tag.textContent = SHARED.mode === 'shared' ? 'PAPER · ONE BOOK' : 'PAPER';
+  if (tag) tag.textContent = SHARED.mode === 'shared' ? 'DEMO · ONE BOOK' : 'DEMO';
 
   $('#agentState').textContent = st.state;
   $('#agentClock').textContent = since(Date.now() - A.startedAt);
@@ -801,7 +801,7 @@ function cycle() {
 var BOOT_LINES = [
   'connecting to Robinhood Chain ············· <b>ok</b>',
   'indexing trending pairs · DEX Screener ···· <b>ok</b>',
-  'restoring paper wallet · 1.000 ETH ········ <b>ok</b>',
+  'restoring the agent wallet · 1.000 ETH ···· <b>ok</b>',
   'waking the model on fal.ai ················ <b>ok</b>',
   'risk module · stop −11% / trail 10% ······· <b>armed</b>'
 ];

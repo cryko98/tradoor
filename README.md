@@ -4,7 +4,7 @@ An autonomous memecoin trading agent for Robinhood Chain, as a website.
 
 Tradoor pulls the **real** trending board of Robinhood Chain from the public DEX Screener API,
 scores every pair, hands the shortlist to a language model on **fal.ai**, and trades
-a **1 ETH paper wallet** on its own — with hard risk rules the model cannot argue
+a **1 ETH demo wallet** on its own — with hard risk rules the model cannot argue
 with. Every decision, thesis and fill is printed live in the terminal.
 
 ```
@@ -135,7 +135,7 @@ day drops into the archive strip.
 
 Attach a Redis store to the Vercel project and the whole site switches to **one shared
 book**: same positions, same tape, same decision stream on every screen, and the status
-bar shows `PAPER · ONE BOOK`.
+bar shows `DEMO · ONE BOOK`.
 
 Setup (one time, ~2 minutes):
 

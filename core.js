@@ -143,7 +143,7 @@ function log(book, now, kind, text, symbol) {
 }
 
 function bootLogs(book, now) {
-  log(book, now, 'boot', 'BOOT  Tradoor online · paper wallet funded with 1.000 ETH', null);
+  log(book, now, 'boot', 'BOOT  Tradoor online · agent wallet funded with 1.000 ETH', null);
   log(book, now, 'boot', 'BOOT  objective — bank 0.04 to 0.1 ETH a trade, and let the runner stretch it. No bag-holding.', null);
   log(book, now, 'boot', 'BOOT  risk limits — max ' + RULES.MAX_POS + ' positions · stop ' + RULES.STOP_PCT +
     '% · trail ' + RULES.TRAIL_PCT + '% · liquidity floor ' + fmtUsd(RULES.MIN_LIQ_USD) +
