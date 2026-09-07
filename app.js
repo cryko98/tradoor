@@ -14,7 +14,7 @@
 var CONFIG = {
   X_URL:    "https://x.com/tradoor_onrh",
   BUY_URL:  "",
-  CONTRACT: "0xdf458c6919653f1c4aaeb5149fd4a51bdd671878"
+  CONTRACT: ""
 };
 
 var REFRESH_MS = 20000;
