@@ -64,6 +64,11 @@ var RULES = {
 var ROUTES = ['Uniswap v4', 'Uniswap v3', '0x Router', '1inch', 'Matcha'];
 var HEX = '0123456789abcdef';
 
+/* Bump this to wipe the book everywhere on the next deploy: the server
+   drops a stored book whose gen does not match, and so does every browser
+   with a local one. The only reset switch there is. */
+var BOOK_GEN = 2;
+
 /* ----------------------------------------------------------------- helpers */
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function fmtAmt(n) {
@@ -101,6 +106,7 @@ function toUsd(ctx, eth) { return eth * ctx.ethUsd; }
 /* ---------------------------------------------------------------- the book */
 function newBook(now, rand) {
   return {
+    gen: BOOK_GEN,
     day: todayOf(now),
     startedAt: now,
     wallet: '0x7d00' + hex(rand || Math.random, 36),
@@ -709,7 +715,7 @@ function stats(book, ctx) {
 }
 
 return {
-  RULES: RULES,
+  RULES: RULES, BOOK_GEN: BOOK_GEN,
   fmtAmt: fmtAmt, fmtUsd: fmtUsd, fmtPrice: fmtPrice, sgn: sgn, clamp: clamp,
   todayOf: todayOf,
   newBook: newBook, bootLogs: bootLogs, log: log,

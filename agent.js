@@ -64,7 +64,12 @@ function restore() {
   if (!raw) return false;
   try {
     var s = JSON.parse(raw);
-    if (!s || s.day !== C.todayOf(Date.now())) {
+    /* a bumped BOOK_GEN wipes the local book: start clean, keep nothing */
+    if (!s || s.gen !== C.BOOK_GEN) {
+      try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+      return false;
+    }
+    if (s.day !== C.todayOf(Date.now())) {
       if (s && s.day) {
         /* archive yesterday before the fresh start */
         var ghost = C.newBook(Date.now(), Math.random);

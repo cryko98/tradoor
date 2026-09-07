@@ -12,7 +12,7 @@
    CONTRACT  fills the contract box and the copy buttons.
 --------------------------------------------------------------------------- */
 var CONFIG = {
-  X_URL:    "",
+  X_URL:    "https://x.com/tradoor_onrh",
   BUY_URL:  "",
   CONTRACT: ""
 };
@@ -686,7 +686,7 @@ function renderHeader(st) {
 
   var eq = A.equity.map(function (e) { return e[1]; });
   eq.push(st.equity);
-  if (eq.length > 1) drawSpark($('#equitySpark'), eq.slice(-160), st.pnl >= 0 ? '#CCFF00' : '#FF5000');
+  if (eq.length > 1) drawSpark($('#equitySpark'), eq.slice(-160), st.pnl >= 0 ? '#CCFF00' : '#9CA294');
 
   $('#brainPulse').textContent = A.brainState;
   var th = $('#brainThesis');

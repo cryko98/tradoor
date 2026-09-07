@@ -49,7 +49,11 @@ async function redis(env, command) {
 async function loadBook(env) {
   const raw = await redis(env, ['GET', BOOK_KEY]);
   if (!raw) return null;
-  try { return JSON.parse(raw); } catch (e) { return null; }
+  let book;
+  try { book = JSON.parse(raw); } catch (e) { return null; }
+  /* a bumped core.BOOK_GEN wipes the shared book on the next deploy */
+  if (!book || book.gen !== core.BOOK_GEN) return null;
+  return book;
 }
 
 async function saveBook(env, book) {
