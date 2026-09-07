@@ -15,6 +15,8 @@ agent.js      the book: scoring, execution, risk rules, persistence
 app.js        rendering, charts, wiring — CONFIG lives at the top
 api/pairs.js  serverless: trending Robinhood Chain pairs, cached on the edge
 api/analyze.js serverless: the fal.ai call (keeps your key server-side)
+api/state.js   serverless: the shared session — one book in Redis, lazy tick
+core.js       the trading logic itself, shared by browser and server
 newlogo.jpg   logo + favicon
 ```
 
@@ -127,12 +129,35 @@ same numbers — change one, change the other.
 ## Session and state
 
 A session is one UTC day. The wallet resets to 1.000 ETH at 00:00 UTC and the previous
-day drops into the archive strip. The book lives in the visitor's `localStorage`, so it
-survives a reload but is per-browser; the market data is shared by everybody.
+day drops into the archive strip.
 
-To give every visitor the *same* book, put the state behind a KV store (Vercel KV or
-Upstash) and move `agent.js`'s tick into a cron function — the module boundaries are
-already drawn for it.
+### Shared session — everybody watches the same wallet
+
+Attach a Redis store to the Vercel project and the whole site switches to **one shared
+book**: same positions, same tape, same decision stream on every screen, and the status
+bar shows `PAPER · ONE BOOK`.
+
+Setup (one time, ~2 minutes):
+
+1. Vercel dashboard → your project → **Storage** → create/connect an **Upstash Redis**
+   database (the free tier is plenty).
+2. Vercel injects the env vars by itself — `/api/state` accepts either naming:
+   `KV_REST_API_URL` + `KV_REST_API_TOKEN`, or `UPSTASH_REDIS_REST_URL` +
+   `UPSTASH_REDIS_REST_TOKEN`.
+3. Redeploy. Done — no code changes, no cron.
+
+How it runs: every open browser polls `/api/state` every 20s. The first poll that finds
+the book more than 15s stale takes a lock and runs one tick **on the server** — reprice,
+risk pass, entries, and (at most once per 40s, for the whole site) the fal.ai call. As
+long as anyone is watching, the agent trades; if nobody watches for an hour, the next
+visitor wakes it and it resumes at current prices. The shared brain is *cheaper* than
+solo mode: one model call per interval total, instead of per visitor.
+
+The trading logic itself lives in `core.js` and is byte-for-byte the same file the
+browser runs, so shared and solo mode cannot drift apart.
+
+Without a store, `/api/state` answers `{ shared:false }` and each visitor's book lives
+in their own `localStorage`, exactly as before.
 
 ## Local preview
 

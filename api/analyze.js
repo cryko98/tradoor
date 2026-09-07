@@ -163,6 +163,16 @@ module.exports = async (req, res) => {
     return res.status(400).json({ ok: false, reason: 'bad-body' });
   }
 
+  windowCount++;
+  const out = await runModel(body);
+  return res.status(200).json(out);
+};
+
+/* the actual model call, also used directly by /api/state in shared mode */
+async function runModel(body) {
+  const key = process.env.FAL_KEY || process.env.FAL_AI_KEY || '';
+  if (!key) return { ok: false, reason: 'no-key' };
+
   const candidates = body.candidates.slice(0, 14).map(trimCandidate);
   const positions = (body.positions || []).slice(0, 6).map((p) => ({
     symbol: p.symbol,
@@ -193,7 +203,6 @@ module.exports = async (req, res) => {
           'stop loss and time stop — only propose SELL when the thesis itself has broken.'
   });
 
-  windowCount++;
   const t0 = Date.now();
 
   try {
@@ -208,10 +217,10 @@ module.exports = async (req, res) => {
     const raw = data.output || data.response || (data.data && data.data.output) || '';
     const parsed = extractJSON(raw);
     if (!parsed) {
-      return res.status(200).json({ ok: false, reason: 'unparseable', raw: String(raw).slice(0, 400) });
+      return { ok: false, reason: 'unparseable', raw: String(raw).slice(0, 400) };
     }
 
-    return res.status(200).json({
+    return {
       ok: true,
       model: FAL_MODEL,
       latencyMs: Date.now() - t0,
@@ -219,8 +228,10 @@ module.exports = async (req, res) => {
       actions: Array.isArray(parsed.actions) ? parsed.actions.slice(0, 2) : [],
       watch: Array.isArray(parsed.watch) ? parsed.watch.slice(0, 6) : [],
       usage: data.usage || null
-    });
+    };
   } catch (err) {
-    return res.status(200).json({ ok: false, reason: 'fal-error', error: String(err && err.message || err).slice(0, 300) });
+    return { ok: false, reason: 'fal-error', error: String(err && err.message || err).slice(0, 300) };
   }
-};
+}
+
+module.exports.runModel = runModel;

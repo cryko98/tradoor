@@ -424,8 +424,8 @@
         <div class="acc__a"><p>Absolutely not. They are whatever is trending and boosted on Robinhood Chain at that minute, which is mostly noise and occasionally a rug. Nothing here is advice, a signal, or a claim about any token. Most of these will be worth nothing next week.</p></div>
       </div>
       <div class="acc__item">
-        <button class="acc__q" type="button" aria-expanded="false"><span>Why is my board different from my friend&rsquo;s?</span><i></i></button>
-        <div class="acc__a"><p>The market data is the same for everybody — one cached feed on the edge. The book is yours: the session lives in your browser, so your Tradoor and their Tradoor may end up holding different names. Same brain, same rules, separate wallets.</p></div>
+        <button class="acc__q" type="button" aria-expanded="false"><span>Is everyone watching the same wallet?</span><i></i></button>
+        <div class="acc__a"><p>Yes — when the status bar says <b>ONE BOOK</b>, there is a single shared session living on the server: one wallet, one tape, one decision stream, identical on every screen, and the agent keeps trading as long as anyone has the page open. If the deployment has no store attached, the site falls back to running a private session in your browser instead, and the badge just says PAPER.</p></div>
       </div>
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Is this a Robinhood product?</span><i></i></button>
@@ -522,6 +522,7 @@
 
 <div class="toast" id="toast">Copied</div>
 
+<script src="core.js"></script>
 <script src="market.js"></script>
 <script src="agent.js"></script>
 <script src="app.js"></script>

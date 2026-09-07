@@ -262,7 +262,7 @@ function sorted() {
   return list;
 }
 function heldMap() { var m = {}; A.positions.forEach(function (p) { m[p.address] = p; }); return m; }
-function watchMap() { var m = {}; A.watch.forEach(function (w) { m[w.p.address] = w; }); return m; }
+function watchMap() { var m = {}; A.watch.forEach(function (w) { m[w.address || (w.p && w.p.address)] = w; }); return m; }
 function priceSeries(addr, windowMs) {
   return M.seriesFor(addr, windowMs).map(function (pt) { return pt.p; });
 }
@@ -547,7 +547,11 @@ function renderWatch() {
   if (!w.length) { box.appendChild(el('div', 'empty', 'nothing clears the filter right now')); return; }
 
   w.forEach(function (it) {
-    var p = M.byAddress[it.p.address] || it.p;
+    var addr = it.address || (it.p && it.p.address);
+    var p = M.byAddress[addr] || it.p || {
+      address: addr, symbol: it.symbol || '?', image: null,
+      ch: { m5: 0 }, liqUsd: 0, vol: { h1: 0 }, score: it.score || 0
+    };
     var item = el('div', 'watch__item');
     var top = el('div', 'watch__top');
     top.appendChild(markFor(p));
@@ -662,6 +666,8 @@ function renderHeader(st) {
   $('#sbFees').textContent = st.fees.toFixed(4) + ' ETH';
   $('#sbSol').textContent = M.ethUsd ? '$' + M.ethUsd.toFixed(2) : '—';
   $('#sbBrain').textContent = st.source === 'model' ? (st.model || 'model') : 'built-in scoring';
+  var tag = $('.statusbar__tag');
+  if (tag) tag.textContent = SHARED.mode === 'shared' ? 'PAPER · ONE BOOK' : 'PAPER';
 
   $('#agentState').textContent = st.state;
   $('#agentClock').textContent = since(Date.now() - A.startedAt);
@@ -752,10 +758,37 @@ function renderAll() {
   paintChartHead();
 }
 
+/* shared session: when /api/state answers (Redis attached on the deployment),
+   everybody watches the ONE server-side book and this browser stops trading
+   on its own. When it does not, the agent runs locally, per visitor. */
+var SHARED = { mode: 'unknown' };
+
+function fetchShared() {
+  return fetch('/api/state', { cache: 'no-store' }).then(function (r) {
+    if (!r.ok) return null;
+    return r.json();
+  }).catch(function () { return null; });
+}
+
 function cycle() {
   M.pinned = A.positions.map(function (p) { return p.address; });
-  return M.refresh().then(function () {
-    A.tick();
+  var jobs = [M.refresh()];
+  jobs.push(SHARED.mode === 'solo' ? Promise.resolve(null) : fetchShared());
+
+  return Promise.all(jobs).then(function (res) {
+    var st = res[1];
+    if (st && st.shared && st.book) {
+      if (SHARED.mode !== 'shared') {
+        SHARED.mode = 'shared';
+        lastLogN = 0; streamFirst = true; $('#stream').innerHTML = '';
+        lastTxSig = null; lastHistLen = -1;
+      }
+      A.adoptShared(st.book);
+      $('#walletAddr').textContent = A.wallet || '—';
+    } else if (SHARED.mode === 'unknown') {
+      SHARED.mode = 'solo';
+    }
+    if (SHARED.mode === 'solo') A.tick();
     if (!tickerCells.length) buildTicker();
     renderAll();
   }).catch(function (e) {
