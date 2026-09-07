@@ -440,11 +440,27 @@ function manage() {
 
     if (pnlPct <= pos.stopPct) { sell(pos, 1, 'stop loss'); continue; }
 
+    /* momentum gone: red, sellers in control, tape rolling over — do not
+       wait around for the full stop to be hit */
+    if (pnlPct < -5 && heldMin > 4 && buyPressure(p) < 0.42 && p.ch.m5 < -2) {
+      sell(pos, 1, 'momentum gone'); continue;
+    }
+
     /* a scaled winner is never allowed to turn red: once the first slice is
        banked, the rest exits at breakeven at worst */
     if (pos.scaled && pnlPct <= pos.exitCost * 0.6) {
       sell(pos, 1, 'breakeven stop'); continue;
     }
+
+    /* profit lock: the stop ratchets up behind the high water mark, so an
+       open gain can breathe but a real one cannot evaporate */
+    var lock = -Infinity;
+    if (pos.peakPct >= 12) lock = pos.exitCost * 0.6;   // breakeven, net of costs
+    if (pos.peakPct >= 20) lock = 8;
+    if (pos.peakPct >= 32) lock = 16;
+    if (pos.peakPct >= 48) lock = 28;
+    if (pos.peakPct >= 70) lock = 45;
+    if (pnlPct <= lock) { sell(pos, 1, 'profit lock'); continue; }
 
     /* target reached — bank most of it, but the runner stays on the trail:
        the big winners come from the piece that is allowed to keep going */
@@ -542,7 +558,7 @@ function applyActions(res, ranked) {
     var pctSize = snipe
       ? Math.min(clamp(Number(a.sizePct) || RULES.SNIPE_SIZE_PCT, 8, 14), 14)
       : clamp(Number(a.sizePct) || 15, RULES.MIN_SIZE_PCT, RULES.MAX_SIZE_PCT);
-    var size = Math.min(equity * pctSize / 100, Agent.cash - 0.005);
+    var size = Math.min(equity * pctSize / 100 * sizeMult(), Agent.cash - 0.005);
     if (size < 0.012) {
       log('think', 'REJECT BUY ' + p.symbol + ' — only ' + Agent.cash.toFixed(3) + ' ETH free', p.symbol);
       return;
@@ -568,10 +584,18 @@ function applyActions(res, ranked) {
   return acted;
 }
 
+/* anti-martingale: press a little when the day is working, shrink when it
+   is not. Never the other way around. */
+function sizeMult() {
+  var pnl = (Agent.equityNow() / RULES.START_ETH - 1) * 100;
+  return pnl > 10 ? 1.15 : pnl < -10 ? 0.8 : 1;
+}
+
 function takeEntry(r, why, lane) {
   var snipe = lane === 'snipe';
   var equity = Agent.equityNow();
-  var size = Math.min(equity * (snipe ? RULES.SNIPE_SIZE_PCT / 100 : 0.20), Agent.cash - 0.005);
+  var size = Math.min(equity * (snipe ? RULES.SNIPE_SIZE_PCT / 100 : 0.20) * sizeMult(),
+                      Agent.cash - 0.005);
   if (size < 0.012) return false;
   log('thesis', 'THESIS ' + r.p.symbol + (snipe ? ' [launch snipe]' : '') + ' — 5m ' +
     sgn(r.p.ch.m5) + ' · 1h ' + sgn(r.p.ch.h1) +

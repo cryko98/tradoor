@@ -106,6 +106,14 @@ var CONFIG = {
    half of any open gain given back closes it, time stop at 35 minutes. Snipes run
    tighter: 10% clips, −9% stop, 15-minute time stop.
 
+Profit protection on top of the ladder:
+- **Profit lock** — the stop ratchets up behind the high water mark: peak +12% locks
+  breakeven, +20% locks +8, +32% locks +16, +48% locks +28, +70% locks +45.
+- **Momentum-gone exit** — a position more than 5% red with sellers in control and a
+  falling 5m is cut early instead of waiting for the full stop.
+- **Anti-martingale sizing** — a session up more than 10% sizes the next clip ×1.15,
+  a session down more than 10% sizes it ×0.8. Never the other way around.
+
 Discipline layer: a name just closed cannot be rebought for 10 minutes (20 after a
 loss), and three full-close losses in a row park all new entries for 10 minutes.
 
