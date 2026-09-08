@@ -24,6 +24,11 @@ const CHAIN = 'robinhood';
    these are only checked against the BASE token. */
 const EXCLUDE_SYMBOLS = new Set(['WETH', 'ETH', 'USDG', 'USDC', 'USDT', 'WBTC', 'DAI']);
 
+/* $TRADOOR itself. It trades on this very board, but the agent must never
+   touch it: a simulated buy of the token this site promotes would read as
+   real buy pressure on the tape, which it is not. */
+const SELF_TOKEN = '0xb47efcc461d3cd6b270daf15388a77a3fae64ad1';
+
 const SEARCH_TERMS = ['robinhood', 'hood', 'stonk', 'moon', 'pepe', 'doge'];
 
 const MIN_MCAP  = 20000;       // the board floor the site advertises
@@ -155,6 +160,7 @@ function normalise(p, boosts) {
 
 function eligible(p) {
   if (EXCLUDE_SYMBOLS.has(p.symbol.toUpperCase())) return false;
+  if (p.address.toLowerCase() === SELF_TOKEN) return false;
   /* fresh listings start tiny — the normal floor would blind the agent to
      the exact window it hunts, so they get a lower one */
   const mcapFloor = p.isFresh ? 8000 : MIN_MCAP;

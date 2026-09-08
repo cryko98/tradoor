@@ -13,8 +13,8 @@
 --------------------------------------------------------------------------- */
 var CONFIG = {
   X_URL:    "",
-  BUY_URL:  "",
-  CONTRACT: ""
+  BUY_URL:  "https://dexscreener.com/robinhood/0x1f530519f99592beaa1683fd25d8c558964115b9a3b2020513e8f46cfec17447",
+  CONTRACT: "0xb47efcc461d3cd6b270daf15388a77a3fae64ad1"
 };
 
 var REFRESH_MS = 20000;

@@ -22,6 +22,8 @@ var MAX_MCAP = 80000000;
 var MIN_LIQ = 4000;
 var MAX_PAIRS = 90;
 var EXCLUDE_SYMBOLS = { WETH: 1, ETH: 1, USDG: 1, USDC: 1, USDT: 1, WBTC: 1, DAI: 1 };
+/* $TRADOOR itself — never tradeable by the agent that promotes it */
+var SELF_TOKEN = '0xb47efcc461d3cd6b270daf15388a77a3fae64ad1';
 
 var Market = {
   pairs: [],
@@ -110,6 +112,7 @@ function rank(p) {
 
 function eligible(p) {
   if (EXCLUDE_SYMBOLS[p.symbol.toUpperCase()]) return false;
+  if (p.address.toLowerCase() === SELF_TOKEN) return false;
   var mcapFloor = p.isFresh ? 8000 : MIN_MCAP;
   return p.priceUsd > 0 &&
     p.marketCap >= mcapFloor && p.marketCap <= MAX_MCAP && p.liqUsd >= MIN_LIQ;
