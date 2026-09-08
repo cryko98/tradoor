@@ -12,9 +12,9 @@
    CONTRACT  fills the contract box and the copy buttons.
 --------------------------------------------------------------------------- */
 var CONFIG = {
-  X_URL:    "https://x.com/tradoor_onrh",
+  X_URL:    "",
   BUY_URL:  "",
-  CONTRACT: "0xebb9ed0c429054cbea6312fa8ab15530e9ea117a"
+  CONTRACT: ""
 };
 
 var REFRESH_MS = 20000;
