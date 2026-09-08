@@ -88,7 +88,7 @@ var CONFIG = {
    chunks of 30.
 2. **Filter** — the board is everything above **$20K market cap** with at least $4K of
    liquidity, up to 90 names. Fresh listings (pair under 3 hours old) bypass the mcap
-   floor and are ranked up. Under $8K of liquidity or already +150% on the hour, the
+   floor and are ranked up. Under $25K of liquidity or already +150% on the hour, the
    agent will not trade it — unless it was listed within the last hour, because a fresh
    pair's whole 1h change is its life so far.
 3. **Score** — conviction out of 100: momentum 26, trend 14, volume/LP 18, liquidity 13,
@@ -109,10 +109,18 @@ var CONFIG = {
    tighter: 10% clips, −9% stop, 15-minute time stop.
 
 Profit protection on top of the ladder:
+- **Slippage-first sizing** — on a board this small, your own impact is the whole game:
+  a 0.2 ETH clip into a $20K pool costs ~6% to enter and ~6% to leave, so a 25% target
+  is half gone before the trade starts. The clip is therefore sized to the *pool* — the
+  largest position that keeps impact under `MAX_IMPACT_PCT` (1.8%) — and capped again by
+  the equity rule. If the pool cannot take at least `MIN_SIZE_ETH`, the trade is skipped.
+- **Stops on market movement, not book P&L** — the fill opens a position down by the
+  entry cost, so judging an −11% stop against the book meant a ~4% wobble closed it. The
+  mid price at entry is stored, and the stop and momentum exit read that instead.
 - **Profit lock** — the stop ratchets up behind the high water mark: peak +12% locks
   breakeven, +20% locks +8, +32% locks +16, +48% locks +28, +70% locks +45.
-- **Momentum-gone exit** — a position more than 5% red with sellers in control and a
-  falling 5m is cut early instead of waiting for the full stop.
+- **Momentum-gone exit** — a position more than 5% below its entry mark with sellers in
+  control and a falling 5m is cut early instead of waiting for the full stop.
 - **Anti-martingale sizing** — a session up more than 10% sizes the next clip ×1.15,
   a session down more than 10% sizes it ×0.8. Never the other way around.
 

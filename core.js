@@ -21,11 +21,19 @@ var RULES = {
   MAX_POS:        5,
   MIN_SIZE_PCT:   12,
   MAX_SIZE_PCT:   25,
-  MIN_LIQ_USD:    8000,
+  MIN_LIQ_USD:    25000,
 
-  TARGET_ETH:     0.055,  // what a normal winner is worth, net
-  TARGET_MIN_PCT: 15,     // never take a trade for less than this move
-  TARGET_MAX_PCT: 60,     // never sit there waiting for more than this
+  /* On a small-cap board your own slippage is the whole game: a 0.2 ETH
+     clip into a $20K pool costs 6% to enter and 6% to leave, so a 25%
+     target is already half eaten before the trade begins. The clip is
+     therefore sized to the POOL, never just to equity — impact capped
+     here — and anything too thin to take a real position is skipped. */
+  MAX_IMPACT_PCT: 1.8,
+  MIN_SIZE_ETH:   0.05,
+
+  TARGET_ETH:     0.04,   // what a normal winner is worth, net
+  TARGET_MIN_PCT: 16,     // never take a trade for less than this move
+  TARGET_MAX_PCT: 40,     // never sit there waiting for more than this
   SCALE_AT:       0.5,    // scale out at half the target...
   SCALE_PORTION:  0.35,   // ...selling this much of the position
   BANK_PORTION:   0.6,    // at the full target, bank this much of what is left...
@@ -45,7 +53,7 @@ var RULES = {
   SNIPE_STOP:    -9,
   SNIPE_TIME_MIN: 15,
   SNIPE_MAX_M5:   90,
-  SNIPE_SCORE:    56,
+  SNIPE_SCORE:    62,
 
   /* discipline */
   REBUY_COOL_MIN: 10,
@@ -55,8 +63,10 @@ var RULES = {
 
   SWAP_FEE:       0.01,
   NET_FEE:        0.000005,
-  SCORE_BUY:      64,
-  FAST_SCORE:     68,
+  /* every trade pays the round trip, so a marginal setup is a guaranteed
+     small loss. The bar sits high enough that fewer, better trades happen. */
+  SCORE_BUY:      68,
+  FAST_SCORE:     74,
 
   LLM_INTERVAL_MS: 40000
 };
@@ -67,7 +77,7 @@ var HEX = '0123456789abcdef';
 /* Bump this to wipe the book everywhere on the next deploy: the server
    drops a stored book whose gen does not match, and so does every browser
    with a local one. The only reset switch there is. */
-var BOOK_GEN = 4;
+var BOOK_GEN = 5;
 
 /* ----------------------------------------------------------------- helpers */
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -249,6 +259,24 @@ function impactPct(sizeUsd, liqUsd) {
   return Math.min(45, (sizeUsd / (liqUsd * 0.5 + sizeUsd)) * 100 * 1.35);
 }
 
+/* impactPct solved for size: the largest clip this pool can take without
+   the round trip eating the move. Depth decides the position, not hope. */
+function sizeForImpact(ctx, liqUsd, maxImpact) {
+  var k = maxImpact / 135;
+  if (k <= 0 || k >= 1 || !liqUsd) return 0;
+  return toEth(ctx, k * liqUsd * 0.5 / (1 - k));
+}
+
+/* what a clip of this size may be, given the pool, the equity rule, the
+   free balance and the anti-martingale multiplier. Returns 0 to skip. */
+function clipSize(book, ctx, p, pctOfEquity) {
+  var equity = equityNow(book, ctx);
+  var byEquity = equity * (pctOfEquity / 100) * sizeMult(book, ctx);
+  var byPool = sizeForImpact(ctx, p.liqUsd, RULES.MAX_IMPACT_PCT);
+  var size = Math.min(byEquity, byPool, book.cash - 0.005);
+  return size >= RULES.MIN_SIZE_ETH ? size : 0;
+}
+
 function equityNow(book, ctx) {
   var v = book.cash;
   book.positions.forEach(function (pos) {
@@ -307,6 +335,10 @@ function buy(book, ctx, p, sizeEth, reason, conviction, lane) {
   var pos = {
     address: p.address, symbol: p.symbol, name: p.name, image: p.image, url: p.url,
     tokens: tokens, costEth: sizeEth, entryUsd: sizeUsd / tokens, lastUsd: p.priceUsd,
+    /* the mid price we bought against. Stops are judged on how far the
+       MARKET moved, not on the book, which opens down by the entry cost —
+       otherwise a 3% wobble would trigger an 11% stop. */
+    entryMarkUsd: p.priceUsd,
     entryAt: ctx.now, peakUsd: p.priceUsd, peakPct: 0, scaled: false, trail: false,
     banked: false, liqAtEntry: p.liqUsd, reason: reason || '', conviction: conviction || 0,
     lane: snipe ? 'snipe' : 'swing',
@@ -409,6 +441,9 @@ function manage(book, ctx) {
     if (pos.stopPct === undefined) { pos.stopPct = RULES.STOP_PCT; pos.timeStopMin = RULES.TIME_STOP_MIN; }
 
     var pnlPct = (p.priceUsd / pos.entryUsd - 1) * 100;
+    /* how far the market itself has moved since the entry — what the stop
+       is really about. Older books without the mark fall back to the fill. */
+    var mktPct = (p.priceUsd / (pos.entryMarkUsd || pos.entryUsd) - 1) * 100;
     var heldMin = (ctx.now - pos.entryAt) / 60000;
     if (pnlPct > pos.peakPct) pos.peakPct = pnlPct;
 
@@ -418,10 +453,10 @@ function manage(book, ctx) {
       sell(book, ctx, pos, 1, 'liquidity guard'); continue;
     }
 
-    if (pnlPct <= pos.stopPct) { sell(book, ctx, pos, 1, 'stop loss'); continue; }
+    if (mktPct <= pos.stopPct) { sell(book, ctx, pos, 1, 'stop loss'); continue; }
 
     /* momentum gone: red, sellers in control, tape rolling over */
-    if (pnlPct < -5 && heldMin > 4 && buyPressure(p) < 0.42 && p.ch.m5 < -2) {
+    if (mktPct < -5 && heldMin > 4 && buyPressure(p) < 0.42 && p.ch.m5 < -2) {
       sell(book, ctx, pos, 1, 'momentum gone'); continue;
     }
 
@@ -480,10 +515,8 @@ function manage(book, ctx) {
 /* ------------------------------------------------------------- entries --- */
 function takeEntry(book, ctx, r, why, lane) {
   var snipe = lane === 'snipe';
-  var equity = equityNow(book, ctx);
-  var size = Math.min(equity * (snipe ? RULES.SNIPE_SIZE_PCT / 100 : 0.20) * sizeMult(book, ctx),
-                      book.cash - 0.005);
-  if (size < 0.012) return false;
+  var size = clipSize(book, ctx, r.p, snipe ? RULES.SNIPE_SIZE_PCT : 20);
+  if (!size) return false;
   log(book, ctx.now, 'thesis', 'THESIS ' + r.p.symbol + (snipe ? ' [launch snipe]' : '') + ' — 5m ' +
     sgn(r.p.ch.m5) + ' · 1h ' + sgn(r.p.ch.h1) +
     ' · LP ' + fmtUsd(r.p.liqUsd) + ' · turnover ×' + r.s.turnover.toFixed(2) +
@@ -572,13 +605,14 @@ function applyModelActions(book, ctx, res, ranked) {
       return;
     }
     var snipe = snipeWindow(p);
-    var equity = equityNow(book, ctx);
     var pctSize = snipe
       ? Math.min(clamp(Number(a.sizePct) || RULES.SNIPE_SIZE_PCT, 8, 14), 14)
       : clamp(Number(a.sizePct) || 15, RULES.MIN_SIZE_PCT, RULES.MAX_SIZE_PCT);
-    var size = Math.min(equity * pctSize / 100 * sizeMult(book, ctx), book.cash - 0.005);
-    if (size < 0.012) {
-      log(book, ctx.now, 'think', 'REJECT BUY ' + p.symbol + ' — only ' + book.cash.toFixed(3) + ' ETH free', p.symbol);
+    var size = clipSize(book, ctx, p, pctSize);
+    if (!size) {
+      log(book, ctx.now, 'think', 'REJECT BUY ' + p.symbol + ' — ' + fmtUsd(p.liqUsd) +
+        ' of liquidity cannot take a clip worth trading (' + book.cash.toFixed(3) +
+        ' ETH free)', p.symbol);
       return;
     }
     log(book, ctx.now, 'thesis', 'MODEL ' + p.symbol + (snipe ? ' [launch snipe]' : '') + ' — 5m ' +
