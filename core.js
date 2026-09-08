@@ -67,7 +67,7 @@ var HEX = '0123456789abcdef';
 /* Bump this to wipe the book everywhere on the next deploy: the server
    drops a stored book whose gen does not match, and so does every browser
    with a local one. The only reset switch there is. */
-var BOOK_GEN = 3;
+var BOOK_GEN = 4;
 
 /* ----------------------------------------------------------------- helpers */
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
