@@ -81,7 +81,7 @@ async function runTick(env, book, now) {
     .slice(0, 25);
   if (missing.length) {
     try {
-      const r = await fetch('https://api.dexscreener.com/tokens/v1/robinhood/' + missing.join(','),
+      const r = await fetch('https://api.dexscreener.com/tokens/v1/solana/' + missing.join(','),
         { headers: { accept: 'application/json' } });
       if (r.ok) {
         const extra = await r.json();
@@ -106,14 +106,14 @@ async function runTick(env, book, now) {
             marketCap: p.marketCap || 0, fdv: p.fdv || 0,
             createdAt: p.pairCreatedAt || 0,
             ageHours: p.pairCreatedAt ? (now - p.pairCreatedAt) / 3600000 : null,
-            isFresh: false
+            isMigration: false
           };
         });
       }
     } catch (e) { /* the 10-minute stale guard in core handles the rest */ }
   }
 
-  const ctx = { byAddress, ethUsd: data.ethUsd || 0, now, rand: Math.random };
+  const ctx = { byAddress, solUsd: data.solUsd || 0, now, rand: Math.random };
   const ranked = core.tick(book, ctx, data.pairs || []);
 
   /* the shared brain: one model call per interval for the whole site */
@@ -123,7 +123,7 @@ async function runTick(env, book, now) {
     const payload = {
       equity: core.equityNow(book, ctx),
       cash: book.cash,
-      pnlPct: (core.equityNow(book, ctx) / core.RULES.START_ETH - 1) * 100,
+      pnlPct: (core.equityNow(book, ctx) / core.RULES.START_SOL - 1) * 100,
       positions: core.positionsForModel(book, ctx),
       candidates: ranked.slice(0, 14).map((r) => r.p)
     };

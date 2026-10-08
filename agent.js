@@ -28,7 +28,7 @@ Agent.snipeWindow = C.snipeWindow;
 Agent.shared = false;
 
 function ctx() {
-  return { byAddress: M.byAddress, ethUsd: M.ethUsd, now: Date.now(), rand: Math.random };
+  return { byAddress: M.byAddress, solUsd: M.solUsd, now: Date.now(), rand: Math.random };
 }
 
 Agent.log = function (kind, text, symbol) { C.log(Agent, Date.now(), kind, text, symbol); };
@@ -91,7 +91,7 @@ function askModel(ranked) {
   var payload = {
     equity: C.equityNow(Agent, cx),
     cash: Agent.cash,
-    pnlPct: (C.equityNow(Agent, cx) / RULES.START_ETH - 1) * 100,
+    pnlPct: (C.equityNow(Agent, cx) / RULES.START_SOL - 1) * 100,
     positions: C.positionsForModel(Agent, cx),
     candidates: ranked.slice(0, 14).map(function (r) { return r.p; })
   };

@@ -13,8 +13,8 @@
 --------------------------------------------------------------------------- */
 var CONFIG = {
   X_URL:    "",
-  BUY_URL:  "https://dexscreener.com/robinhood/0x1f530519f99592beaa1683fd25d8c558964115b9a3b2020513e8f46cfec17447",
-  CONTRACT: "0xb47efcc461d3cd6b270daf15388a77a3fae64ad1"
+  BUY_URL:  "",
+  CONTRACT: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 };
 
 var REFRESH_MS = 20000;
@@ -64,7 +64,7 @@ function fillMark(wrap, p) {
   } else {
     wrap.textContent = p.symbol.slice(0, 2);
   }
-  wrap.style.background = 'hsl(' + hueOf(p.address || p.symbol) + ',45%,48%)';
+  wrap.style.background = 'hsl(' + hueOf(p.address || p.symbol) + ',58%,52%)';
   return wrap;
 }
 
@@ -138,7 +138,7 @@ function drawArea(canvas, data, opts) {
   min -= rng * 0.08; max += rng * 0.08; rng = max - min;
   var X = function (i) { return (i / (data.length - 1)) * (w - padR); };
   var Y = function (v) { return padT + (1 - (v - min) / rng) * (h - padT - padB); };
-  var color = opts.color || '#CCFF00';
+  var color = opts.color || '#5FE4A8';
 
   ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = 1;
   ctx.font = '9px "JetBrains Mono", monospace';
@@ -337,21 +337,21 @@ function renderScan() {
     var s = Math.round(p.score || 0);
     q.scoreVal.textContent = s;
     q.scoreBar.style.width = Math.max(2, s) + '%';
-    q.scoreBar.style.background = s >= 66 ? '#CCFF00' : s >= 45 ? '#FFB84D' : '#3F4438';
+    q.scoreBar.style.background = s >= 66 ? '#5FE4A8' : s >= 45 ? '#FFB84D' : '#4A5768';
 
     var f = q.flag;
     if (held[p.address])        { f.className = 'flag flag--held';  f.textContent = 'holding'; }
-    else if (p.isFresh && p.ageHours !== null && p.ageHours * 60 <= A.RULES.SNIPE_AGE_MIN)
-                                { f.className = 'flag flag--snipe'; f.textContent = 'listed ' + Math.round(p.ageHours * 60) + 'm'; }
+    else if (p.isMigration && p.ageHours !== null && p.ageHours * 60 <= A.RULES.SNIPE_AGE_MIN)
+                                { f.className = 'flag flag--snipe'; f.textContent = 'migrated ' + Math.round(p.ageHours * 60) + 'm'; }
     else if (watch[p.address])  { f.className = 'flag flag--watch'; f.textContent = 'watching'; }
     else if (p.liqUsd < A.RULES.MIN_LIQ_USD) { f.className = 'flag flag--rug'; f.textContent = 'thin LP'; }
-    else if (p.isFresh)         { f.className = 'flag flag--new';   f.textContent = 'fresh'; }
+    else if (p.isMigration)         { f.className = 'flag flag--new';   f.textContent = 'pumpswap'; }
     else if (p.ageHours !== null && p.ageHours < 1) { f.className = 'flag flag--new'; f.textContent = 'new'; }
     else if (p.ch.m5 > 3)       { f.className = 'flag flag--new';   f.textContent = 'moving'; }
     else                        { f.className = 'flag'; f.textContent = p.ch.h1 >= 0 ? 'steady' : 'bleeding'; }
 
     row.tr.className = (p.address === focusAddr ? 'is-focus ' : '') + (held[p.address] ? 'is-held' : '');
-    drawSpark(q.spark, priceSeries(p.address, 6 * 3600000), p.ch.h1 >= 0 ? '#CCFF00' : '#FF5000');
+    drawSpark(q.spark, priceSeries(p.address, 6 * 3600000), p.ch.h1 >= 0 ? '#5FE4A8' : '#FF5F6D');
     body.appendChild(row.tr);
   });
 
@@ -360,7 +360,7 @@ function renderScan() {
   });
 
   var ago = Math.round((Date.now() - M.updatedAt) / 1000);
-  $('#scanFoot').textContent = list.length + ' Robinhood Chain pairs · DEX Screener · updated ' +
+  $('#scanFoot').textContent = list.length + ' Solana pairs · DEX Screener · updated ' +
     (ago < 5 ? 'just now' : ago + 's ago') + ' · ' + A.scans + ' scans this session';
 }
 
@@ -418,7 +418,7 @@ function renderFocus() {
   ch.className = cls(p.ch.m5);
 
   drawArea($('#focusChart'), priceSeries(p.address, 24 * 3600000), {
-    color: p.ch.h24 >= 0 ? '#CCFF00' : '#FF5000',
+    color: p.ch.h24 >= 0 ? '#5FE4A8' : '#FF5F6D',
     fmt: function (v) { return '$' + A.fmtPrice(v); },
     padR: 66
   });
@@ -447,10 +447,10 @@ function renderFocus() {
   total.appendChild(el('span', null, 'conviction'));
   var t2 = el('em'), f2 = el('i');
   f2.style.width = s.score + '%';
-  f2.style.background = s.score >= 66 ? 'linear-gradient(90deg,#CCFF00,#E9FF6B)' : '#3F4438';
+  f2.style.background = s.score >= 66 ? 'linear-gradient(90deg,#5FE4A8,#8DF3C4)' : '#4A5768';
   t2.appendChild(f2); total.appendChild(t2);
   var tb = el('b', null, s.score.toFixed(1));
-  if (s.score >= 66) tb.style.color = '#CCFF00';
+  if (s.score >= 66) tb.style.color = '#5FE4A8';
   total.appendChild(tb);
   bars.appendChild(total);
 
@@ -488,8 +488,8 @@ function renderPortfolio(st) {
   A.positions.forEach(function (pos) {
     var p = M.byAddress[pos.address];
     var mark = p ? p.priceUsd : pos.lastUsd;
-    var value = M.toEth(pos.tokens * mark);
-    var pnl = value - pos.costEth;
+    var value = M.toSol(pos.tokens * mark);
+    var pnl = value - pos.costSol;
     var pnlPct = mark / pos.entryUsd - 1;
     var tr = el('tr');
 
@@ -504,7 +504,7 @@ function renderPortfolio(st) {
     tr.appendChild(el('td', 'num', A.fmtAmt(pos.tokens)));
     tr.appendChild(el('td', 'num', '$' + A.fmtPrice(pos.entryUsd)));
     tr.appendChild(el('td', 'num', '$' + A.fmtPrice(mark)));
-    tr.appendChild(el('td', 'num', sol(value) + ' ETH'));
+    tr.appendChild(el('td', 'num', sol(value) + ' SOL'));
 
     var tdPnl = el('td', 'num ' + cls(pnl));
     tdPnl.textContent = (pnl >= 0 ? '+' : '') + sol(pnl) + ' (' + pctStr(pnlPct) + ')';
@@ -513,7 +513,7 @@ function renderPortfolio(st) {
     var tdM = el('td', 'c-stop'), m = el('div', 'mgmt');
     var tgt = el('span', pnlPct * 100 >= (pos.targetPct || 0) ? 'on' : '',
       '+' + (pos.targetPct || 0).toFixed(0) + '%');
-    tgt.title = 'target ≈ +' + (pos.targetEth || 0).toFixed(3) + ' ETH net of fees';
+    tgt.title = 'target ≈ +' + (pos.targetSol || 0).toFixed(3) + ' SOL net of fees';
     m.appendChild(tgt);
     m.appendChild(el('span', pos.scaled ? 'on' : '', 'SCALE'));
     m.appendChild(el('span', pos.trail ? 'on' : '', 'TRAIL'));
@@ -525,21 +525,76 @@ function renderPortfolio(st) {
     body.appendChild(tr);
   });
 
-  $('#pfChip').textContent = sol(st.equity) + ' ETH';
+  $('#pfChip').textContent = sol(st.equity) + ' SOL';
 
   var eq = A.equity.map(function (e) { return e[1]; });
   eq.push(st.equity);
-  if (eq.length < 2) eq.unshift(A.RULES.START_ETH);
+  if (eq.length < 2) eq.unshift(A.RULES.START_SOL);
   drawArea($('#equityChart'), eq, {
-    color: st.pnl >= 0 ? '#CCFF00' : '#FF5000',
-    base: A.RULES.START_ETH,
+    color: st.pnl >= 0 ? '#5FE4A8' : '#FF5F6D',
+    base: A.RULES.START_SOL,
     fmt: function (v) { return v.toFixed(2); },
     padR: 42
   });
 }
 
 /* ------------------------------------------------------------- watchlist -- */
+/* pump.fun coins still on the bonding curve — the agent's pre-migration radar.
+   Fed by pump.fun's REST API through the edge, or by PumpPortal's live stream
+   straight in the browser when that API is throttling. */
+function renderLaunchpad() {
+  var box = $('#launchpad');
+  if (!box) return;
+  var lp = M.launchpad || [];
+  box.innerHTML = '';
+  if (!lp.length) { box.style.display = 'none'; return; }
+  box.style.display = '';
+
+  var head = el('div', 'launch__head', 'pump.fun launchpad — sniped the moment they graduate');
+  if (M.live && M.live.ok) head.appendChild(el('em', null, 'live'));
+  box.appendChild(head);
+
+  lp.slice(0, 5).forEach(function (c) {
+    var item = el('div', 'launch__item');
+    var mark = el('span', 'coin-mark');
+    if (c.image) {
+      var img = document.createElement('img');
+      img.src = c.image; img.alt = ''; img.loading = 'lazy';
+      img.onerror = function () { img.remove(); mark.textContent = c.symbol.slice(0, 2); };
+      mark.appendChild(img);
+    } else mark.textContent = c.symbol.slice(0, 2);
+    mark.style.background = 'hsl(' + hueOf(c.mint) + ',58%,52%)';
+    item.appendChild(mark);
+
+    var mid = el('div', 'launch__mid');
+    var top = el('div', 'launch__top');
+    top.appendChild(el('b', null, '$' + c.symbol));
+    var ageMin = c.createdAt ? Math.round((Date.now() - c.createdAt) / 60000) : c.ageMin;
+    top.appendChild(el('i', null,
+      c.kind === 'graduating' ? A.fmtUsd(c.mcapUsd) + ' mcap'
+        : (ageMin !== null && ageMin !== undefined ? ageMin + 'm old' : 'new')));
+    mid.appendChild(top);
+    var track = el('div', 'launch__bar');
+    var fill = el('i');
+    fill.style.width = Math.max(3, Math.round(c.progress * 100)) + '%';
+    track.appendChild(fill);
+    mid.appendChild(track);
+    item.appendChild(mid);
+
+    var pct = el('span', 'launch__pct', Math.round(c.progress * 100) + '%');
+    if (c.progress >= 0.8) pct.classList.add('is-hot');
+    item.appendChild(pct);
+
+    item.title = c.name + ' — ' + Math.round(c.progress * 100) + '% of the way to PumpSwap' +
+      (c.live ? ' · live stream on now' : '');
+    var url = 'https://pump.fun/coin/' + c.mint;
+    item.addEventListener('click', function () { window.open(url, '_blank', 'noopener'); });
+    box.appendChild(item);
+  });
+}
+
 function renderWatch() {
+  renderLaunchpad();
   var box = $('#watchList');
   box.innerHTML = '';
   var w = A.watch;
@@ -560,7 +615,7 @@ function renderWatch() {
     var bar = el('span', 'score-bar'), fill = el('i');
     var sv = it.score || p.score || 0;
     fill.style.width = Math.max(2, sv) + '%';
-    fill.style.background = sv >= 66 ? '#CCFF00' : '#FFB84D';
+    fill.style.background = sv >= 66 ? '#5FE4A8' : '#FFB84D';
     bar.appendChild(fill); sc.appendChild(bar); sc.appendChild(el('b', null, sv.toFixed(0)));
     top.appendChild(sc);
     item.appendChild(top);
@@ -593,13 +648,13 @@ function renderTx() {
     var main = el('div', 'tx__main');
     var head = el('b');
     head.textContent = t.side === 'BUY'
-      ? sol(t.sol) + ' ETH → ' + A.fmtAmt(t.tokens) + ' ' + t.symbol
-      : A.fmtAmt(t.tokens) + ' ' + t.symbol + ' → ' + sol(t.sol) + ' ETH';
+      ? sol(t.sol) + ' SOL → ' + A.fmtAmt(t.tokens) + ' ' + t.symbol
+      : A.fmtAmt(t.tokens) + ' ' + t.symbol + ' → ' + sol(t.sol) + ' SOL';
     main.appendChild(head);
 
     var sigLine = el('div', 'tx__sig');
     sigLine.appendChild(el('code', null, short(t.sig, 8)));
-    sigLine.appendChild(el('span', null, 'block ' + t.slot.toLocaleString('en-US')));
+    sigLine.appendChild(el('span', null, 'slot ' + t.slot.toLocaleString('en-US')));
     sigLine.appendChild(el('span', null, t.route));
     sigLine.appendChild(el('span', null, 'impact ' + t.impact.toFixed(2) + '%'));
     sigLine.appendChild(el('span', null, 'fee ' + (t.fee + t.priority).toFixed(6)));
@@ -615,7 +670,7 @@ function renderTx() {
       right.appendChild(document.createTextNode(hhmmss(t.t)));
       right.appendChild(el('i', null, '$' + A.fmtPrice(t.priceUsd)));
     } else {
-      right.appendChild(el('span', cls(t.pnl), (t.pnl >= 0 ? '+' : '') + sol(t.pnl) + ' ETH'));
+      right.appendChild(el('span', cls(t.pnl), (t.pnl >= 0 ? '+' : '') + sol(t.pnl) + ' SOL'));
       right.appendChild(el('i', null, hhmmss(t.t)));
     }
     row.appendChild(right);
@@ -644,7 +699,7 @@ function renderHist() {
     row.appendChild(mid);
     var right = el('div', 'hist__pct ' + cls(t.pnl));
     right.textContent = pctStr(t.pct);
-    right.appendChild(el('span', null, (t.pnl >= 0 ? '+' : '') + sol(t.pnl) + ' ETH'));
+    right.appendChild(el('span', null, (t.pnl >= 0 ? '+' : '') + sol(t.pnl) + ' SOL'));
     row.appendChild(right);
     box.appendChild(row);
   });
@@ -653,32 +708,46 @@ function renderHist() {
 /* --------------------------------------------------------------- header --- */
 function renderHeader(st) {
   $('#sbSession').textContent = A.day + ' · ' + since(Date.now() - A.startedAt);
-  $('#sbEquity').textContent = sol(st.equity) + ' ETH';
+  $('#sbEquity').textContent = sol(st.equity) + ' SOL';
   var pnlEl = $('#sbPnl');
   pnlEl.textContent = (st.pnl >= 0 ? '+' : '') + sol(st.pnl) + ' (' + pctStr(st.pnlPct) + ')';
   pnlEl.className = cls(st.pnl);
   var realEl = $('#sbReal');
-  realEl.textContent = (st.realized >= 0 ? '+' : '') + sol(st.realized) + ' ETH';
+  realEl.textContent = (st.realized >= 0 ? '+' : '') + sol(st.realized) + ' SOL';
   realEl.className = cls(st.realized);
   $('#sbOpen').textContent = st.open + ' / ' + A.RULES.MAX_POS;
   $('#sbWin').textContent = st.closed ? (st.winRate * 100).toFixed(0) + '% (' + st.wins + '/' + st.closed + ')' : '—';
   $('#sbDD').textContent = '−' + (st.maxDD * 100).toFixed(1) + '%';
-  $('#sbFees').textContent = st.fees.toFixed(4) + ' ETH';
-  $('#sbSol').textContent = M.ethUsd ? '$' + M.ethUsd.toFixed(2) : '—';
+  $('#sbFees').textContent = st.fees.toFixed(4) + ' SOL';
+  $('#sbSol').textContent = M.solUsd ? '$' + M.solUsd.toFixed(2) : '—';
   $('#sbBrain').textContent = st.source === 'model' ? (st.model || 'model') : 'built-in scoring';
   var tag = $('.statusbar__tag');
   if (tag) tag.textContent = SHARED.mode === 'shared' ? 'DEMO · ONE BOOK' : 'DEMO';
 
   $('#agentState').textContent = st.state;
+
+  /* the guy in the cap has feelings about his P&L */
+  var mood = $('#agentMood');
+  if (mood) {
+    var p = st.pnlPct;
+    mood.textContent =
+      st.state === 'cooling off' ? 'feeling: in timeout after three straight L’s. touching grass.'
+      : (!st.trades && !st.open)  ? 'feeling: fresh wallet. untouched. dangerous.'
+      : p > 0.08  ? 'feeling: unstoppable. this is usually when it goes wrong.'
+      : p > 0.02  ? 'feeling: cautiously green. not looking at it too hard.'
+      : p > -0.02 ? 'feeling: flat. the market is a casino and i am the lights.'
+      : p > -0.08 ? 'feeling: it’s fine. it’s fine. healthy pullback.'
+      :             'feeling: down bad. not selling. (the stop will sell for me.)';
+  }
   $('#agentClock').textContent = since(Date.now() - A.startedAt);
   $('#agentEquity').textContent = sol(st.equity);
   var d = $('#agentDelta');
-  d.textContent = (st.pnl >= 0 ? '+' : '') + sol(st.pnl) + ' ETH · ' + pctStr(st.pnlPct, 2);
+  d.textContent = (st.pnl >= 0 ? '+' : '') + sol(st.pnl) + ' SOL · ' + pctStr(st.pnlPct, 2);
   d.className = 'agent__delta' + (st.pnl < 0 ? ' is-down' : '');
   $('#agentCash').textContent = sol(st.cash);
   $('#agentOpen').textContent = st.open + ' / ' + A.RULES.MAX_POS;
   $('#agentWin').textContent = st.closed ? (st.winRate * 100).toFixed(0) + '%' : '—';
-  $('#navEquity').textContent = sol(st.equity) + ' ETH';
+  $('#navEquity').textContent = sol(st.equity) + ' SOL';
 
   $('#heroTrades').textContent = st.trades;
   $('#heroScans').textContent = st.scans;
@@ -686,7 +755,7 @@ function renderHeader(st) {
 
   var eq = A.equity.map(function (e) { return e[1]; });
   eq.push(st.equity);
-  if (eq.length > 1) drawSpark($('#equitySpark'), eq.slice(-160), st.pnl >= 0 ? '#CCFF00' : '#9CA294');
+  if (eq.length > 1) drawSpark($('#equitySpark'), eq.slice(-160), st.pnl >= 0 ? '#5FE4A8' : '#9CA294');
 
   $('#brainPulse').textContent = A.brainState;
   var th = $('#brainThesis');
@@ -732,7 +801,7 @@ function renderArchive() {
   A.archive.slice().reverse().slice(0, 7).forEach(function (a) {
     var d = el('div', 'arch');
     d.appendChild(el('div', 'arch__d', a.date));
-    d.appendChild(el('div', 'arch__v', a.close.toFixed(2) + ' ETH'));
+    d.appendChild(el('div', 'arch__v', a.close.toFixed(2) + ' SOL'));
     d.appendChild(el('div', 'arch__p ' + cls(a.pnlPct), pctStr(a.pnlPct)));
     d.appendChild(el('div', 'arch__m', a.trades + ' transactions · ' + (a.winRate * 100).toFixed(0) + '% win'));
     row.appendChild(d);
@@ -799,11 +868,11 @@ function cycle() {
 
 /* ------------------------------------------------------------------- boot */
 var BOOT_LINES = [
-  'connecting to Robinhood Chain ············· <b>ok</b>',
-  'indexing trending pairs · DEX Screener ···· <b>ok</b>',
-  'restoring the agent wallet · 1.000 ETH ···· <b>ok</b>',
-  'waking the model on fal.ai ················ <b>ok</b>',
-  'risk module · stop −11% / trail 10% ······· <b>armed</b>'
+  'waking up tradoor ························ <b>ugh</b>',
+  'coffee · charts · pump.fun launchpad ······ <b>ok</b>',
+  'finding the bag · 10.000 SOL ·············· <b>ok</b>',
+  'asking the model what to do ··············· <b>ok</b>',
+  'stop losses · emotional support ··········· <b>armed</b>'
 ];
 
 function boot() {

@@ -6,7 +6,7 @@
    homes, zero drift between them.
 
    Nothing in here touches the DOM, localStorage, fetch or a clock: the
-   caller passes a ctx { byAddress, ethUsd, now, rand } and collects the
+   caller passes a ctx { byAddress, solUsd, now, rand } and collects the
    results from the book.
 ============================================================================ */
 (function (global, factory) {
@@ -17,21 +17,21 @@
 
 /* --------------------------------------------------------------- rulebook */
 var RULES = {
-  START_ETH:      1,
+  START_SOL:      10,
   MAX_POS:        5,
   MIN_SIZE_PCT:   12,
   MAX_SIZE_PCT:   25,
-  MIN_LIQ_USD:    25000,
+  MIN_LIQ_USD:    18000,
 
-  /* On a small-cap board your own slippage is the whole game: a 0.2 ETH
+  /* On a small-cap board your own slippage is the whole game: a 2 SOL
      clip into a $20K pool costs 6% to enter and 6% to leave, so a 25%
      target is already half eaten before the trade begins. The clip is
      therefore sized to the POOL, never just to equity — impact capped
      here — and anything too thin to take a real position is skipped. */
   MAX_IMPACT_PCT: 1.8,
-  MIN_SIZE_ETH:   0.05,
+  MIN_SIZE_SOL:   0.5,
 
-  TARGET_ETH:     0.04,   // what a normal winner is worth, net
+  TARGET_SOL:     0.4,    // what a normal winner is worth, net
   TARGET_MIN_PCT: 16,     // never take a trade for less than this move
   TARGET_MAX_PCT: 40,     // never sit there waiting for more than this
   SCALE_AT:       0.5,    // scale out at half the target...
@@ -47,7 +47,7 @@ var RULES = {
   TIME_STOP_MIN:  35,     // dead money gets recycled
   RUG_LIQ_DROP:   0.40,
 
-  /* the launch snipe: a pair that was just listed on Robinhood Chain */
+  /* the migration snipe: a pump.fun coin that just graduated onto PumpSwap */
   SNIPE_AGE_MIN:  75,
   SNIPE_SIZE_PCT: 10,
   SNIPE_STOP:    -9,
@@ -71,13 +71,13 @@ var RULES = {
   LLM_INTERVAL_MS: 40000
 };
 
-var ROUTES = ['Uniswap v4', 'Uniswap v3', '0x Router', '1inch', 'Matcha'];
-var HEX = '0123456789abcdef';
+var ROUTES = ['Jupiter v6', 'Raydium CLMM', 'Meteora DLMM', 'Orca Whirlpool', 'pump.fun AMM'];
+var B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
 /* Bump this to wipe the book everywhere on the next deploy: the server
    drops a stored book whose gen does not match, and so does every browser
    with a local one. The only reset switch there is. */
-var BOOK_GEN = 5;
+var BOOK_GEN = 6;
 
 /* ----------------------------------------------------------------- helpers */
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -104,14 +104,15 @@ function fmtPrice(p) {
   return '0.0' + tag + e[0].replace('.', '').slice(0, 4);
 }
 function sgn(v, d) { return (v >= 0 ? '+' : '') + v.toFixed(d === undefined ? 1 : d) + '%'; }
-function hex(rand, n) {
+/* Solana addresses and signatures are base58 */
+function b58(rand, n) {
   var s = '';
-  for (var i = 0; i < n; i++) s += HEX[(rand() * 16) | 0];
+  for (var i = 0; i < n; i++) s += B58[(rand() * 58) | 0];
   return s;
 }
 function todayOf(now) { return new Date(now).toISOString().slice(0, 10); }
-function toEth(ctx, usd) { return ctx.ethUsd > 0 ? usd / ctx.ethUsd : 0; }
-function toUsd(ctx, eth) { return eth * ctx.ethUsd; }
+function toSol(ctx, usd) { return ctx.solUsd > 0 ? usd / ctx.solUsd : 0; }
+function toUsd(ctx, eth) { return eth * ctx.solUsd; }
 
 /* ---------------------------------------------------------------- the book */
 function newBook(now, rand) {
@@ -119,8 +120,8 @@ function newBook(now, rand) {
     gen: BOOK_GEN,
     day: todayOf(now),
     startedAt: now,
-    wallet: '0x7d00' + hex(rand || Math.random, 36),
-    cash: RULES.START_ETH,
+    wallet: 'Trdr' + b58(rand || Math.random, 40),
+    cash: RULES.START_SOL,
     positions: [],
     closed: [],
     txs: [],
@@ -128,7 +129,7 @@ function newBook(now, rand) {
     watch: [],
     equity: [],
     archive: [],
-    peak: RULES.START_ETH,
+    peak: RULES.START_SOL,
     maxDD: 0,
     fees: 0,
     nClosed: 0,
@@ -159,14 +160,14 @@ function log(book, now, kind, text, symbol) {
 }
 
 function bootLogs(book, now) {
-  log(book, now, 'boot', 'BOOT  Tradoor online · agent wallet funded with 1.000 ETH', null);
-  log(book, now, 'boot', 'BOOT  objective — bank 0.04 to 0.1 ETH a trade, and let the runner stretch it. No bag-holding.', null);
+  log(book, now, 'boot', 'BOOT  Tradoor online · agent wallet funded with 10.000 SOL', null);
+  log(book, now, 'boot', 'BOOT  objective — bank 0.4 to 1 SOL a trade, and let the runner stretch it. No bag-holding.', null);
   log(book, now, 'boot', 'BOOT  risk limits — max ' + RULES.MAX_POS + ' positions · stop ' + RULES.STOP_PCT +
     '% · trail ' + RULES.TRAIL_PCT + '% · liquidity floor ' + fmtUsd(RULES.MIN_LIQ_USD) +
-    ' · board floor $20K market cap', null);
-  log(book, now, 'boot', 'BOOT  snipe lane armed — fresh listings get ' + RULES.SNIPE_SIZE_PCT +
+    ' · board floor $100K market cap', null);
+  log(book, now, 'boot', 'BOOT  snipe lane armed — pump.fun graduates get ' + RULES.SNIPE_SIZE_PCT +
     '% clips, stop ' + RULES.SNIPE_STOP + '%, ' + RULES.SNIPE_TIME_MIN + 'm time stop', null);
-  log(book, now, 'boot', 'BOOT  scanning Robinhood Chain on DEX Screener · decisions by the model on fal.ai', null);
+  log(book, now, 'boot', 'BOOT  scanning Solana on DEX Screener + the pump.fun launchpad · decisions by the model on fal.ai', null);
 }
 
 /* ------------------------------------------------------------- scoring --- */
@@ -180,7 +181,7 @@ function buyPressure(p) {
 }
 
 function snipeWindow(p) {
-  return !!p.isFresh && p.ageHours !== null && p.ageHours !== undefined &&
+  return !!p.isMigration && p.ageHours !== null && p.ageHours !== undefined &&
     p.ageHours * 60 <= RULES.SNIPE_AGE_MIN;
 }
 
@@ -264,7 +265,7 @@ function impactPct(sizeUsd, liqUsd) {
 function sizeForImpact(ctx, liqUsd, maxImpact) {
   var k = maxImpact / 135;
   if (k <= 0 || k >= 1 || !liqUsd) return 0;
-  return toEth(ctx, k * liqUsd * 0.5 / (1 - k));
+  return toSol(ctx, k * liqUsd * 0.5 / (1 - k));
 }
 
 /* what a clip of this size may be, given the pool, the equity rule, the
@@ -274,7 +275,7 @@ function clipSize(book, ctx, p, pctOfEquity) {
   var byEquity = equity * (pctOfEquity / 100) * sizeMult(book, ctx);
   var byPool = sizeForImpact(ctx, p.liqUsd, RULES.MAX_IMPACT_PCT);
   var size = Math.min(byEquity, byPool, book.cash - 0.005);
-  return size >= RULES.MIN_SIZE_ETH ? size : 0;
+  return size >= RULES.MIN_SIZE_SOL ? size : 0;
 }
 
 function equityNow(book, ctx) {
@@ -282,21 +283,22 @@ function equityNow(book, ctx) {
   book.positions.forEach(function (pos) {
     var p = ctx.byAddress[pos.address];
     var priceUsd = p ? p.priceUsd : pos.lastUsd;
-    v += toEth(ctx, pos.tokens * priceUsd);
+    v += toSol(ctx, pos.tokens * priceUsd);
   });
   return v;
 }
 
 /* anti-martingale: press a little when the day works, shrink when it does not */
 function sizeMult(book, ctx) {
-  var pnl = (equityNow(book, ctx) / RULES.START_ETH - 1) * 100;
+  var pnl = (equityNow(book, ctx) / RULES.START_SOL - 1) * 100;
   return pnl > 10 ? 1.15 : pnl < -10 ? 0.8 : 1;
 }
 
 function recordTx(book, ctx, o) {
   var tx = {
-    sig: '0x' + hex(ctx.rand, 64),
-    slot: 21400000 + Math.floor((ctx.now - 1767225600000) / 1000),
+    sig: b58(ctx.rand, 88),
+    /* a plausible slot: mainnet seals about two and a half a second */
+    slot: 318942100 + Math.floor((ctx.now - 1767225600000) / 400),
     t: ctx.now,
     side: o.side, symbol: o.symbol, address: o.address, url: o.url,
     sol: o.sol, tokens: o.tokens, priceUsd: o.priceUsd,
@@ -315,7 +317,7 @@ function recordTx(book, ctx, o) {
 function buy(book, ctx, p, sizeEth, reason, conviction, lane) {
   var sizeUsd = toUsd(ctx, sizeEth);
   var imp = impactPct(sizeUsd, p.liqUsd);
-  var priority = 0.00001 + ctx.rand() * 0.00003;
+  var priority = 0.00025 + ctx.rand() * 0.0016;
   var spend = sizeEth + RULES.NET_FEE + priority;
   if (spend > book.cash) return null;
 
@@ -328,13 +330,13 @@ function buy(book, ctx, p, sizeEth, reason, conviction, lane) {
 
   var exitCost = RULES.SWAP_FEE * 100 + imp;
   var targetPct = snipe
-    ? clamp((RULES.TARGET_ETH * 0.85 / sizeEth) * 100 + exitCost, 18, 45)
-    : clamp((RULES.TARGET_ETH / sizeEth) * 100 + exitCost,
+    ? clamp((RULES.TARGET_SOL * 0.85 / sizeEth) * 100 + exitCost, 18, 45)
+    : clamp((RULES.TARGET_SOL / sizeEth) * 100 + exitCost,
             RULES.TARGET_MIN_PCT, RULES.TARGET_MAX_PCT);
 
   var pos = {
     address: p.address, symbol: p.symbol, name: p.name, image: p.image, url: p.url,
-    tokens: tokens, costEth: sizeEth, entryUsd: sizeUsd / tokens, lastUsd: p.priceUsd,
+    tokens: tokens, costSol: sizeEth, entryUsd: sizeUsd / tokens, lastUsd: p.priceUsd,
     /* the mid price we bought against. Stops are judged on how far the
        MARKET moved, not on the book, which opens down by the entry cost —
        otherwise a 3% wobble would trigger an 11% stop. */
@@ -345,7 +347,7 @@ function buy(book, ctx, p, sizeEth, reason, conviction, lane) {
     stopPct: snipe ? RULES.SNIPE_STOP : RULES.STOP_PCT,
     timeStopMin: snipe ? RULES.SNIPE_TIME_MIN : RULES.TIME_STOP_MIN,
     exitCost: exitCost, targetPct: targetPct,
-    targetEth: sizeEth * (targetPct - exitCost) / 100
+    targetSol: sizeEth * (targetPct - exitCost) / 100
   };
   book.positions.push(pos);
 
@@ -354,10 +356,10 @@ function buy(book, ctx, p, sizeEth, reason, conviction, lane) {
     tokens: tokens, priceUsd: fillUsd, impact: imp, fee: RULES.NET_FEE, priority: priority
   });
 
-  log(book, ctx.now, 'exec', 'BUY  ' + sizeEth.toFixed(3) + ' ETH → ' + fmtAmt(tokens) + ' ' +
+  log(book, ctx.now, 'exec', 'BUY  ' + sizeEth.toFixed(3) + ' SOL → ' + fmtAmt(tokens) + ' ' +
     p.symbol + ' @ ' + fmtPrice(fillUsd) + ' · impact ' + imp.toFixed(2) + '%', p.symbol);
   log(book, ctx.now, 'manage', 'PLAN  ' + p.symbol + (snipe ? ' [snipe]' : '') + ' target +' +
-    targetPct.toFixed(1) + '% ≈ +' + pos.targetEth.toFixed(3) + ' ETH net · scale ' +
+    targetPct.toFixed(1) + '% ≈ +' + pos.targetSol.toFixed(3) + ' SOL net · scale ' +
     Math.round(RULES.SCALE_PORTION * 100) + '% at +' + (targetPct * RULES.SCALE_AT).toFixed(1) +
     '% · stop ' + pos.stopPct + '% · time stop ' + pos.timeStopMin + 'm', p.symbol);
   return pos;
@@ -369,15 +371,15 @@ function sell(book, ctx, pos, portion, reason) {
   var tokens = pos.tokens * portion;
   var grossUsd = tokens * priceUsd;
   var imp = impactPct(grossUsd, p ? p.liqUsd : grossUsd * 4);
-  var priority = 0.00001 + ctx.rand() * 0.00003;
-  var outEth = toEth(ctx, grossUsd * (1 - imp / 100) * (1 - RULES.SWAP_FEE));
-  var basis = pos.costEth * portion;
+  var priority = 0.00025 + ctx.rand() * 0.0016;
+  var outEth = toSol(ctx, grossUsd * (1 - imp / 100) * (1 - RULES.SWAP_FEE));
+  var basis = pos.costSol * portion;
   var pnl = outEth - basis;
 
   book.cash += outEth - RULES.NET_FEE - priority;
-  book.fees += RULES.NET_FEE + priority + toEth(ctx, grossUsd) * RULES.SWAP_FEE;
+  book.fees += RULES.NET_FEE + priority + toSol(ctx, grossUsd) * RULES.SWAP_FEE;
   pos.tokens -= tokens;
-  pos.costEth -= basis;
+  pos.costSol -= basis;
 
   recordTx(book, ctx, {
     side: 'SELL', symbol: pos.symbol, address: pos.address, url: pos.url, sol: outEth,
@@ -397,8 +399,8 @@ function sell(book, ctx, pos, portion, reason) {
   book.realized += pnl;
 
   log(book, ctx.now, pnl >= 0 ? 'win' : 'loss',
-    'SELL ' + fmtAmt(tokens) + ' ' + pos.symbol + ' → ' + outEth.toFixed(3) + ' ETH · ' +
-    (pnl >= 0 ? '+' : '') + pnl.toFixed(3) + ' ETH (' + sgn(rec.pct * 100) + ') · ' + reason,
+    'SELL ' + fmtAmt(tokens) + ' ' + pos.symbol + ' → ' + outEth.toFixed(3) + ' SOL · ' +
+    (pnl >= 0 ? '+' : '') + pnl.toFixed(3) + ' SOL (' + sgn(rec.pct * 100) + ') · ' + reason,
     pos.symbol);
 
   if (portion >= 0.999 || pos.tokens <= 0) {
@@ -517,7 +519,7 @@ function takeEntry(book, ctx, r, why, lane) {
   var snipe = lane === 'snipe';
   var size = clipSize(book, ctx, r.p, snipe ? RULES.SNIPE_SIZE_PCT : 20);
   if (!size) return false;
-  log(book, ctx.now, 'thesis', 'THESIS ' + r.p.symbol + (snipe ? ' [launch snipe]' : '') + ' — 5m ' +
+  log(book, ctx.now, 'thesis', 'THESIS ' + r.p.symbol + (snipe ? ' [migration snipe]' : '') + ' — 5m ' +
     sgn(r.p.ch.m5) + ' · 1h ' + sgn(r.p.ch.h1) +
     ' · LP ' + fmtUsd(r.p.liqUsd) + ' · turnover ×' + r.s.turnover.toFixed(2) +
     ' · buy pressure ' + (r.s.pressure * 100).toFixed(0) + '% → score ' +
@@ -568,10 +570,10 @@ function autoEntries(book, ctx, ranked) {
   if (snipes.length) {
     snipes.sort(function (a, b) { return a.p.ageHours - b.p.ageHours; });
     var s = snipes[0];
-    log(book, ctx.now, 'alert', 'SNIPE ' + s.p.symbol + ' listed on Robinhood Chain ' +
+    log(book, ctx.now, 'alert', 'SNIPE ' + s.p.symbol + ' graduated to PumpSwap ' +
       Math.round(s.p.ageHours * 60) + 'm ago · LP ' + fmtUsd(s.p.liqUsd) +
       ' · buys ' + s.p.txns.m5.buys + '/' + s.p.txns.m5.sells + ' on 5m', s.p.symbol);
-    takeEntry(book, ctx, s, 'fresh Robinhood Chain listing', 'snipe');
+    takeEntry(book, ctx, s, 'fresh PumpSwap migration', 'snipe');
     return;
   }
   if (strong.length) takeEntry(book, ctx, strong[0], 'high-conviction momentum', 'swing');
@@ -597,7 +599,7 @@ function applyModelActions(book, ctx, res, ranked) {
     }
 
     if (String(a.type).toUpperCase() !== 'BUY') return;
-    if (!p) { log(book, ctx.now, 'think', 'REJECT model proposed a token that is not on the board', null); return; }
+    if (!p) { log(book, ctx.now, 'think', 'REJECT model proposed a mint that is not on the board', null); return; }
     if (holding) return;
     var blocked = entryBlock(book, p, ctx.now);
     if (blocked) {
@@ -612,10 +614,10 @@ function applyModelActions(book, ctx, res, ranked) {
     if (!size) {
       log(book, ctx.now, 'think', 'REJECT BUY ' + p.symbol + ' — ' + fmtUsd(p.liqUsd) +
         ' of liquidity cannot take a clip worth trading (' + book.cash.toFixed(3) +
-        ' ETH free)', p.symbol);
+        ' SOL free)', p.symbol);
       return;
     }
-    log(book, ctx.now, 'thesis', 'MODEL ' + p.symbol + (snipe ? ' [launch snipe]' : '') + ' — 5m ' +
+    log(book, ctx.now, 'thesis', 'MODEL ' + p.symbol + (snipe ? ' [migration snipe]' : '') + ' — 5m ' +
       sgn(p.ch.m5) + ' · 1h ' + sgn(p.ch.h1) +
       ' · LP ' + fmtUsd(p.liqUsd) + ' · vol 1h ' + fmtUsd(p.vol.h1) +
       ' · conviction ' + (a.conviction || '?') + '/100 → ' + (a.reason || 'buy'), p.symbol);
@@ -655,11 +657,11 @@ function heuristicWatch(book, ranked) {
 /* --------------------------------------------------------------- session -- */
 function archiveFrom(book) {
   var close = book.equity && book.equity.length
-    ? book.equity[book.equity.length - 1][1] : RULES.START_ETH;
+    ? book.equity[book.equity.length - 1][1] : RULES.START_SOL;
   book.archive = (book.archive || []).concat([{
     date: book.day,
     close: close,
-    pnlPct: close / RULES.START_ETH - 1,
+    pnlPct: close / RULES.START_SOL - 1,
     trades: book.nTx || 0,
     winRate: book.nClosed ? (book.nWins || 0) / book.nClosed : 0
   }]).slice(-14);
@@ -671,13 +673,13 @@ function rollDayIfNeeded(book, ctx) {
   archiveFrom(book);
   book.day = t;
   book.startedAt = ctx.now;
-  book.cash = RULES.START_ETH;
+  book.cash = RULES.START_SOL;
   book.positions = []; book.closed = []; book.txs = []; book.equity = [];
-  book.peak = RULES.START_ETH; book.maxDD = 0; book.fees = 0;
+  book.peak = RULES.START_SOL; book.maxDD = 0; book.fees = 0;
   book.nClosed = 0; book.nWins = 0; book.nTx = 0; book.realized = 0;
   book.scans = 0; book.llmCalls = 0; book.thesis = '';
   book.cooldowns = {}; book.lossStreak = 0; book.pausedUntil = 0;
-  log(book, ctx.now, 'boot', 'BOOT  new session · wallet reset to ' + RULES.START_ETH.toFixed(3) + ' ETH', null);
+  log(book, ctx.now, 'boot', 'BOOT  new session · wallet reset to ' + RULES.START_SOL.toFixed(3) + ' SOL', null);
   return true;
 }
 
@@ -715,13 +717,13 @@ function positionsForModel(book, ctx) {
   return book.positions.map(function (pos) {
     var p = ctx.byAddress[pos.address];
     var mark = p ? p.priceUsd : pos.lastUsd;
-    var value = toEth(ctx, pos.tokens * mark);
+    var value = toSol(ctx, pos.tokens * mark);
     return {
       symbol: pos.symbol, address: pos.address,
       entryUsd: pos.entryUsd, markUsd: mark,
       pnlPct: (mark / pos.entryUsd - 1) * 100,
-      pnlEth: value - pos.costEth,
-      valueEth: value,
+      pnlSol: value - pos.costSol,
+      valueSol: value,
       targetPct: pos.targetPct || 0,
       scaledOut: !!pos.scaled,
       lane: pos.lane || 'swing',
@@ -739,7 +741,7 @@ function stats(book, ctx) {
   });
   return {
     equity: eq, cash: book.cash,
-    pnl: eq - RULES.START_ETH, pnlPct: eq / RULES.START_ETH - 1,
+    pnl: eq - RULES.START_SOL, pnlPct: eq / RULES.START_SOL - 1,
     realized: book.realized, trades: book.nTx, closed: book.nClosed, wins: book.nWins,
     winRate: book.nClosed ? book.nWins / book.nClosed : 0,
     best: best, worst: worst, fees: book.fees, maxDD: book.maxDD,

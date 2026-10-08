@@ -1,23 +1,23 @@
 # Tradoor — $TRADOOR
 
-An autonomous memecoin trading agent for Robinhood Chain, as a website.
+An autonomous memecoin trading agent for Solana and the pump.fun launchpad, as a website.
 
-Tradoor pulls the **real** trending board of Robinhood Chain from the public DEX Screener API,
+Tradoor pulls the **real** trending Solana board from the public DEX Screener API and the pump.fun feeds,
 scores every pair, hands the shortlist to a language model on **fal.ai**, and trades
-a **1 ETH demo wallet** on its own — with hard risk rules the model cannot argue
+a **10 SOL demo wallet** on its own — with hard risk rules the model cannot argue
 with. Every decision, thesis and fill is printed live in the terminal.
 
 ```
 index.html    markup
-styles.css    all styling (near-black terminal, Robinhood-lime accent)
+styles.css    all styling (dark terminal, Solana purple-to-green accent)
 market.js     DEX Screener feed, normalisation, price history
 agent.js      the book: scoring, execution, risk rules, persistence
 app.js        rendering, charts, wiring — CONFIG lives at the top
-api/pairs.js  serverless: trending Robinhood Chain pairs, cached on the edge
+api/pairs.js  serverless: trending Solana pairs + pump.fun launchpad, cached on the edge
 api/analyze.js serverless: the fal.ai call (keeps your key server-side)
 api/state.js   serverless: the shared session — one book in Redis, lazy tick
 core.js       the trading logic itself, shared by browser and server
-newlogo.jpg   logo + favicon
+logo.jpg      logo + favicon
 ```
 
 Static site plus two serverless functions. No build step, no dependencies.
@@ -28,11 +28,11 @@ Static site plus two serverless functions. No build step, no dependencies.
 
 | Real | Simulated |
 |---|---|
-| Tokens, prices, liquidity, volume, buys/sells, pair age (DEX Screener) | The 1 ETH wallet |
+| Tokens, prices, liquidity, volume, buys/sells, pair age (DEX Screener) | The 10 SOL wallet |
 | The scoring model and the risk rules | Fills, slippage, fees |
-| The model’s analysis and reasoning | Transaction hashes and blocks |
+| The model’s analysis and reasoning | Transaction signatures and slots |
 
-Nothing is sent to any chain, no funds can be deposited or withdrawn, and the
+Nothing is broadcast to a validator, no funds can be deposited or withdrawn, and the
 footer says so in plain language. Keep it that way — the terminal is a demonstration,
 not a brokerage.
 
@@ -83,25 +83,25 @@ var CONFIG = {
 ## How the agent works
 
 1. **Scan** — discovery every 3 minutes across five DEX Screener lists plus a sweep of
-   searches, everything filtered to `chainId: robinhood`. Pairs listed minutes ago show
-   up here, and so do memecoins quoted against tokenized stocks. Repriced every 20s in
+   searches, plus the pump.fun API (new launches, climbing the curve, freshly graduated)
+   and PumpPortal's free live stream in the browser for the instant a coin graduates. Repriced every 20s in
    chunks of 30.
-2. **Filter** — the board is everything above **$20K market cap** with at least $4K of
-   liquidity, up to 90 names. Fresh listings (pair under 3 hours old) bypass the mcap
-   floor and are ranked up. Under $25K of liquidity or already +150% on the hour, the
-   agent will not trade it — unless it was listed within the last hour, because a fresh
-   pair's whole 1h change is its life so far.
+2. **Filter** — the board is everything above **$100K market cap** with at least $8K of
+   liquidity, up to 90 names. Fresh PumpSwap graduates (pool under 3 hours old) bypass the mcap
+   floor at $45K and are ranked up. Under $18K of liquidity or already +150% on the hour, the
+   agent will not trade it — unless it migrated within the last hour, because a fresh
+   graduate's whole 1h change is its life since migration.
 3. **Score** — conviction out of 100: momentum 26, trend 14, volume/LP 18, liquidity 13,
-   5m buy pressure 14, token quality 15, plus a decaying freshness bonus for new listings.
+   5m buy pressure 14, token quality 15, plus a decaying freshness bonus for migrations.
 4. **Think** — top 14 plus the current book go to the model, told to hunt 20–50%
-   moves rather than moonshots, and to snipe fresh listings small and fast. Between
+   moves rather than moonshots, and to snipe fresh migrations small and fast. Between
    model calls the built-in brain can act on its own: a high-conviction momentum entry
-   (score ≥ 68) or a **launch snipe** (listed < 75 min ago, buyers in control) —
+   (score ≥ 74) or a **migration snipe** (graduated < 75 min ago, buyers in control) —
    at most one entry per 40 seconds.
 5. **Execute** — every proposal is re-checked against the rulebook (position count, size
-   cap, free ETH, liquidity floor, per-name cooldown) before it fills. Slippage comes
+   cap, free SOL, liquidity floor, per-name cooldown) before it fills. Slippage comes
    off real pool depth.
-6. **Bank it** — each position carries an ETH target, 0.04–0.1 net of fees, converted to a
+6. **Bank it** — each position carries a SOL target, 0.4–1 net of fees, converted to a
    percentage against the size actually bought. 35% off at half the target; at the full
    target 60% of the rest is banked and the runner trails 10% under the high (cut at
    2.2× the target no matter what). Stop at −11%, a scaled winner can never close red,
@@ -110,10 +110,10 @@ var CONFIG = {
 
 Profit protection on top of the ladder:
 - **Slippage-first sizing** — on a board this small, your own impact is the whole game:
-  a 0.2 ETH clip into a $20K pool costs ~6% to enter and ~6% to leave, so a 25% target
+  a 2 SOL clip into a $20K pool costs ~6% to enter and ~6% to leave, so a 25% target
   is half gone before the trade starts. The clip is therefore sized to the *pool* — the
   largest position that keeps impact under `MAX_IMPACT_PCT` (1.8%) — and capped again by
-  the equity rule. If the pool cannot take at least `MIN_SIZE_ETH`, the trade is skipped.
+  the equity rule. If the pool cannot take at least `MIN_SIZE_SOL`, the trade is skipped.
 - **Stops on market movement, not book P&L** — the fill opens a position down by the
   entry cost, so judging an −11% stop against the book meant a ~4% wobble closed it. The
   mid price at entry is stored, and the stop and momentum exit read that instead.
@@ -136,7 +136,7 @@ same numbers — change one, change the other.
 
 ## Session and state
 
-A session is one UTC day. The wallet resets to 1.000 ETH at 00:00 UTC and the previous
+A session is one UTC day. The wallet resets to 10.000 SOL at 00:00 UTC and the previous
 day drops into the archive strip.
 
 ### Shared session — everybody watches the same wallet
@@ -182,6 +182,6 @@ For the full thing, including `/api`, use the Vercel CLI:
 vercel dev
 ```
 
-> **Trademark note.** Tradoor is an independent community project with no affiliation to
-> Robinhood Markets, Inc. or the operators of Robinhood Chain. The name of the network is
-> used only to describe where the market data comes from.
+> **Independence note.** Tradoor is an independent community project with no affiliation to
+> pump.fun, PumpPortal, DEX Screener or Solana Labs. Their names appear only to describe
+> where the public market data comes from.

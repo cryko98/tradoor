@@ -4,25 +4,25 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Tradoor — the memecoin agent that trades by itself</title>
-<meta name="description" content="Tradoor is an autonomous agent on Robinhood Chain. It reads live DEX Screener data on every trending memecoin, thinks with an LLM, and works a 1 ETH wallet for 0.04 to 0.1 ETH a trade — every decision printed as it happens." />
-<meta name="theme-color" content="#0A0B08" />
+<meta name="description" content="Tradoor is an autonomous agent on Solana. It reads live DEX Screener data on every trending memecoin and the pump.fun launchpad, thinks with an LLM, and works a 10 SOL wallet for 0.4 to 1 SOL a trade — every decision printed as it happens." />
+<meta name="theme-color" content="#0B0A14" />
 
-<link rel="icon" type="image/jpeg" href="newlogo.jpg" />
-<link rel="apple-touch-icon" href="newlogo.jpg" />
+<link rel="icon" type="image/jpeg" href="logo.jpg" />
+<link rel="apple-touch-icon" href="logo.jpg" />
 
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Tradoor — the memecoin agent that trades by itself" />
-<meta property="og:description" content="Real trending memecoins on Robinhood Chain. Real analysis by a model. Small wins, on repeat, with nobody at the keyboard." />
-<meta property="og:image" content="newlogo.jpg" />
+<meta property="og:description" content="Real trending Solana memecoins and pump.fun graduates. Real analysis by a model. Small wins, on repeat, with nobody at the keyboard." />
+<meta property="og:image" content="logo.jpg" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Tradoor — the memecoin agent that trades by itself" />
-<meta name="twitter:description" content="Real trending memecoins on Robinhood Chain. Real analysis by a model. Small wins, on repeat, with nobody at the keyboard." />
-<meta name="twitter:image" content="newlogo.jpg" />
+<meta name="twitter:description" content="Real trending Solana memecoins and pump.fun graduates. Real analysis by a model. Small wins, on repeat, with nobody at the keyboard." />
+<meta name="twitter:image" content="logo.jpg" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://api.dexscreener.com" />
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -31,8 +31,8 @@
 <!-- ══════════════════════════════ BOOT ══════════════════════════════ -->
 <div class="boot" id="boot">
   <div class="boot__inner">
-    <img class="boot__face" src="newlogo.jpg" alt="" />
-    <div class="boot__title">TRADOOR<span>v3.0 · robinhood chain</span></div>
+    <img class="boot__face" src="logo.jpg" alt="" />
+    <div class="boot__title">TRADOOR<span>v4.0 · solana</span></div>
     <pre class="boot__log" id="bootLog"></pre>
     <div class="boot__bar"><i id="bootBar"></i></div>
     <div class="boot__hint" id="bootHint">pulling the live board…</div>
@@ -42,7 +42,7 @@
 <!-- ══════════════════════════════ NAV ══════════════════════════════ -->
 <header class="nav" id="nav">
   <a class="nav__brand" href="#top">
-    <span class="nav__mark"><img src="newlogo.jpg" alt="Tradoor" /></span>
+    <span class="nav__mark"><img src="logo.jpg" alt="Tradoor" /></span>
     <span class="nav__name">Tradoor<i>$TRADOOR</i></span>
   </a>
   <nav class="nav__links" id="navLinks">
@@ -53,7 +53,7 @@
     <a href="#faq">FAQ</a>
   </nav>
   <div class="nav__actions">
-    <span class="nav__live" id="navLive"><i></i><b>LIVE</b><em id="navEquity">1.000 ETH</em></span>
+    <span class="nav__live" id="navLive"><i></i><b>LIVE</b><em id="navEquity">10.000 SOL</em></span>
     <a class="icon-btn x-link" href="#" target="_blank" rel="noopener" aria-label="Follow on X">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
     </a>
@@ -71,51 +71,52 @@
 
   <div class="wrap hero__inner">
     <div class="hero__copy">
-      <div class="eyebrow"><span class="led"></span> Autonomous agent · Robinhood Chain · live board</div>
+      <div class="eyebrow"><span class="led"></span> a guy, 10 SOL, and a pump.fun scanner</div>
       <h1 class="hero__title">
-        He shows the way<br />
-        <em>to the trades that pay.</em>
+        He trades memecoins<br />
+        <em>so you don&rsquo;t have to.</em>
       </h1>
       <p class="hero__sub">
-        Tradoor watches the <b>real</b> trending board of <b>Robinhood Chain</b> — live prices,
-        liquidity and buy pressure from DEX Screener, fresh listings minutes after their pool
-        exists, memecoins trading against tokenized stocks — hands the shortlist to a language
-        model, and takes the trade himself. He is not hunting a hundred-x. He is hunting the next
-        clean <b>0.04 to 0.1 ETH</b>, over and over — and when a trade really runs, a runner is
-        left on to stretch it. Every thought he has is printed below while it happens.
+        Tradoor is a guy with <b>10 SOL</b>, a scanner and no impulse control problem. He watches the
+        <b>real</b> Solana board and the <b>pump.fun launchpad</b>, asks a language model what to do,
+        and does it himself — stops, targets, cope and all. He is not hunting a hundred-x. He is
+        hunting the next clean <b>0.4 to 1 SOL</b>, over and over, with a stop under every one of
+        them. Every thought he has is printed below while it happens. Pray for him.
       </p>
       <div class="hero__cta">
         <a class="btn btn--solid btn--lg buy-link" href="#token"><span>Buy $TRADOOR</span></a>
-        <a class="btn btn--ghost btn--lg" href="#terminal"><span>Watch him trade</span></a>
+        <a class="btn btn--ghost btn--lg" href="#terminal"><span>Watch him cope</span></a>
       </div>
       <div class="hero__facts">
-        <div><b id="heroTrades">0</b><span>transactions today</span></div>
-        <div><b id="heroScans">0</b><span>scanner passes</span></div>
-        <div><b id="heroUniverse">0</b><span>live pairs watched</span></div>
+        <div><b id="heroTrades">0</b><span>trades today</span></div>
+        <div><b id="heroScans">0</b><span>times he refreshed</span></div>
+        <div><b id="heroUniverse">0</b><span>coins he&rsquo;s eyeing</span></div>
       </div>
     </div>
 
     <!-- live agent card -->
     <aside class="agent">
       <div class="agent__top">
-        <div class="agent__face"><img src="newlogo.jpg" alt="Tradoor" /><span class="agent__led"></span></div>
+        <div class="agent__face"><img src="logo.jpg" alt="Tradoor" /><span class="agent__led"></span></div>
         <div class="agent__id">
           <b>Tradoor</b>
           <span id="agentState">booting</span>
         </div>
-        <div class="agent__uptime"><i>session</i><span id="agentClock">00:00:00</span></div>
+        <div class="agent__uptime"><i>awake for</i><span id="agentClock">00:00:00</span></div>
       </div>
+
+      <div class="agent__mood" id="agentMood">feeling: just woke up, haven&rsquo;t looked at the chart yet</div>
 
       <div class="agent__equity">
         <span class="agent__label">Wallet equity</span>
-        <div class="agent__value"><b id="agentEquity">1.000</b><i>ETH</i></div>
-        <div class="agent__delta" id="agentDelta">+0.000 ETH · +0.00%</div>
+        <div class="agent__value"><b id="agentEquity">10.000</b><i>SOL</i></div>
+        <div class="agent__delta" id="agentDelta">+0.000 SOL · +0.00%</div>
       </div>
 
       <canvas class="agent__spark" id="equitySpark" height="90"></canvas>
 
       <div class="agent__row">
-        <div><i>Free ETH</i><b id="agentCash">1.000</b></div>
+        <div><i>Free SOL</i><b id="agentCash">10.000</b></div>
         <div><i>Open</i><b id="agentOpen">0 / 5</b></div>
         <div><i>Win rate</i><b id="agentWin">—</b></div>
       </div>
@@ -138,8 +139,8 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="sec-num">01</span>
-      <h2 class="sec-title">The Terminal</h2>
-      <p class="sec-kicker">Live Robinhood Chain pairs. Live decisions. Nothing below is a recording.</p>
+      <h2 class="sec-title">The Desk</h2>
+      <p class="sec-kicker">Live coins, live decisions, live cope. Nothing below is a recording.</p>
     </div>
 
     <div class="statusbar">
@@ -154,7 +155,7 @@
         <div><i>Win rate</i><b id="sbWin">—</b></div>
         <div><i>Max DD</i><b id="sbDD">—</b></div>
         <div><i>Fees</i><b id="sbFees">—</b></div>
-        <div><i>ETH</i><b id="sbSol">—</b></div>
+        <div><i>SOL</i><b id="sbSol">—</b></div>
         <div><i>Brain</i><b id="sbBrain">—</b></div>
       </div>
     </div>
@@ -164,7 +165,7 @@
       <!-- ── scanner ── -->
       <section class="panel panel--scan">
         <header class="panel__head">
-          <h3>Trending scanner</h3>
+          <h3>What&rsquo;s pumping</h3>
           <div class="tabs" id="scanTabs">
             <button class="is-on" data-sort="score">Agent score</button>
             <button data-sort="ch5m">5m movers</button>
@@ -194,7 +195,7 @@
       <!-- ── brain ── -->
       <section class="panel panel--brain">
         <header class="panel__head">
-          <h3>Decision stream</h3>
+          <h3>His inner monologue</h3>
           <span class="pulse" id="brainPulse">thinking</span>
         </header>
         <div class="thesis" id="brainThesis"></div>
@@ -204,7 +205,7 @@
       <!-- ── focus ── -->
       <section class="panel panel--focus">
         <header class="panel__head">
-          <h3>Pair inspector</h3>
+          <h3>Under the microscope</h3>
           <span class="chip" id="focusRegime">—</span>
           <button class="chart-btn" type="button" id="focusChartBtn" title="Open the live DEX Screener chart">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18M7 15l3.5-4 3 3L20 7"/></svg>
@@ -234,8 +235,8 @@
       <!-- ── portfolio ── -->
       <section class="panel panel--pf">
         <header class="panel__head">
-          <h3>Portfolio</h3>
-          <span class="chip" id="pfChip">1.000 ETH</span>
+          <h3>The bag</h3>
+          <span class="chip" id="pfChip">10.000 SOL</span>
         </header>
         <canvas class="pf__chart" id="equityChart" height="180"></canvas>
         <div class="table-wrap">
@@ -255,17 +256,17 @@
       <!-- ── watchlist ── -->
       <section class="panel panel--watch">
         <header class="panel__head">
-          <h3>Watchlist</h3>
+          <h3>Eyeing these</h3>
           <span class="chip" id="watchChip">0 tracked</span>
         </header>
-        
+        <div class="launch" id="launchpad" style="display:none"></div>
         <div class="watch" id="watchList"></div>
       </section>
 
       <!-- ── transactions ── -->
       <section class="panel panel--tx">
         <header class="panel__head">
-          <h3>Transactions</h3>
+          <h3>Receipts</h3>
           <span class="chip chip--sim">simulated fills</span>
         </header>
         <div class="txs" id="txList"></div>
@@ -274,7 +275,7 @@
       <!-- ── closed trades ── -->
       <section class="panel panel--hist">
         <header class="panel__head">
-          <h3>Closed trades</h3>
+          <h3>Wins &amp; cope</h3>
           <span class="chip" id="histChip">0</span>
         </header>
         <div class="hist" id="histList"></div>
@@ -283,7 +284,7 @@
     </div>
 
     <div class="archive">
-      <div class="archive__head"><h4>Previous sessions</h4><span>the wallet resets to 1.000 ETH every day at 00:00 UTC</span></div>
+      <div class="archive__head"><h4>Yesterday&rsquo;s damage</h4><span>he wakes up with a fresh 10.000 SOL every day at 00:00 UTC, no memory of the night before</span></div>
       <div class="archive__row" id="archiveRow"></div>
     </div>
   </div>
@@ -294,25 +295,25 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="sec-num">02</span>
-      <h2 class="sec-title">How he trades</h2>
-      <p class="sec-kicker">Six steps, on a loop, forever</p>
+      <h2 class="sec-title">How he copes</h2>
+      <p class="sec-kicker">Six steps, on a loop, until the stop hits</p>
     </div>
 
     <ol class="steps">
       <li class="step">
         <span class="step__n">01</span>
         <h3>Scan</h3>
-        <p>Boosted tokens, fresh profiles, community takeovers, promoted pairs and a sweep of searches — everything DEX Screener knows about <b>Robinhood Chain</b>, including pairs listed minutes ago and memecoins quoted against tokenized stocks. Repriced every 20 seconds.</p>
+        <p>Boosted tokens, fresh profiles, community takeovers, promoted pairs, a sweep of searches — and the <b>pump.fun launchpad</b>: brand-new launches, coins climbing the bonding curve, and every graduation onto PumpSwap, streamed live the second the pool exists. Repriced every 20 seconds.</p>
       </li>
       <li class="step">
         <span class="step__n">02</span>
         <h3>Filter</h3>
-        <p>The board is everything above <b>$20K market cap</b> with a pool deep enough to leave. Under $25,000 of liquidity he will not touch it, and anything already up 150% on the hour is somebody else&rsquo;s exit — unless it was listed in the last hour, because then the spike <em>is</em> the setup.</p>
+        <p>The board is everything above <b>$100K market cap</b> with a pool deep enough to leave. Under $18,000 of liquidity he will not touch it, and anything already up 150% on the hour is somebody else&rsquo;s exit — unless it graduated in the last hour, because then the spike <em>is</em> the setup.</p>
       </li>
       <li class="step">
         <span class="step__n">03</span>
         <h3>Score</h3>
-        <p>What survives gets a conviction number out of 100: momentum 26, trend 14, volume against pool 18, liquidity depth 13, 5m buy pressure 14, token quality 15.</p>
+        <p>What survives gets a conviction number out of 100: momentum 26, trend 14, volume against pool 18, liquidity depth 13, 5m buy pressure 14, token quality 15 — plus a freshness bonus that decays as a migration ages.</p>
       </li>
       <li class="step">
         <span class="step__n">04</span>
@@ -322,12 +323,12 @@
       <li class="step">
         <span class="step__n">05</span>
         <h3>Execute</h3>
-        <p>Every proposal is checked against the rulebook before it fills: position count, size cap, free ETH, liquidity floor. Slippage is priced off the real pool depth, fees are booked, the signature hits the tape.</p>
+        <p>Every proposal is checked against the rulebook before it fills: position count, size cap, free SOL, liquidity floor. The clip is sized to the pool so slippage stays under 1.8%, fees are booked, the signature hits the tape.</p>
       </li>
       <li class="step">
         <span class="step__n">06</span>
         <h3>Bank it</h3>
-        <p>Each position gets an ETH target — <b>0.04 to 0.1 net of fees</b> — turned into a percentage against what he actually bought. 35% comes off at half the target, 60% of the rest at the full target, and the runner trails 10% under the high until the move actually dies. Stop at &minus;11%, and behind every winner the stop ratchets up — +12% locks breakeven, +20% locks +8, +32% locks +16 — so an open gain can breathe but a real one cannot evaporate. Launch snipes run tighter: &minus;9% stop, fifteen-minute time stop.</p>
+        <p>Each position gets a SOL target — <b>0.4 to 1 net of fees</b> — turned into a percentage against what he actually bought. 35% comes off at half the target, 60% of the rest at the full target, and the runner trails 10% under the high until the move actually dies. Stop at &minus;11% of the market move, and behind every winner the stop ratchets up — +12% locks breakeven, +20% locks +8, +32% locks +16 — so an open gain can breathe but a real one cannot evaporate. Migration snipes run tighter: &minus;9% stop, fifteen-minute time stop.</p>
       </li>
     </ol>
 
@@ -344,16 +345,16 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="sec-num">03</span>
-      <h2 class="sec-title">Risk rules</h2>
-      <p class="sec-kicker">The lines the model is not allowed to cross</p>
+      <h2 class="sec-title">House rules</h2>
+      <p class="sec-kicker">What he is not allowed to do, no matter how good the candle looks</p>
     </div>
     <div class="rules__grid">
-      <div class="rule"><b>1.000</b><span>ETH</span><i>Opening balance every session. He never gets a top-up.</i></div>
-      <div class="rule"><b>0.04&ndash;0.1</b><span>ETH</span><i>What a normal winner is worth. Net, after fees and slippage.</i></div>
+      <div class="rule"><b>10.000</b><span>SOL</span><i>Opening balance every session. He never gets a top-up.</i></div>
+      <div class="rule"><b>0.4&ndash;1</b><span>SOL</span><i>What a normal winner is worth. Net, after fees and slippage.</i></div>
       <div class="rule"><b>5</b><span>max</span><i>Concurrent positions. The sixth idea has to wait.</i></div>
       <div class="rule"><b>25%</b><span>cap</span><i>Largest slice of equity a single memecoin can take.</i></div>
-      <div class="rule"><b>&minus;11%</b><span>stop</span><i>Hard stop loss. No averaging down, ever.</i></div>
-      <div class="rule"><b>$20K</b><span>floor</span><i>Market cap floor for the board. Below that it is not a market.</i></div>
+      <div class="rule"><b>&minus;11%</b><span>stop</span><i>Hard stop loss on the market move. No averaging down, ever.</i></div>
+      <div class="rule"><b>$100K</b><span>floor</span><i>Market cap floor for the board. Fresh graduates get a pass at $45K.</i></div>
       <div class="rule"><b>1.8%</b><span>impact</span><i>Max slippage a clip may cause. The pool sizes the position, not hope.</i></div>
       <div class="rule"><b>35</b><span>min</span><i>Time stop. Dead money goes back in the pocket.</i></div>
     </div>
@@ -374,21 +375,21 @@
         <div class="stat"><div class="stat__k">Total supply</div><div class="stat__v"><span class="count" data-to="1000000000">0</span></div><div class="stat__n">Minted once. Never again.</div></div>
         <div class="stat"><div class="stat__k">Tax</div><div class="stat__v"><span class="count" data-to="0">0</span><i>%</i></div><div class="stat__n">Zero on buys, zero on sells.</div></div>
         <div class="stat"><div class="stat__k">Liquidity</div><div class="stat__v"><span class="count" data-to="100">0</span><i>%</i></div><div class="stat__n">Burned at launch.</div></div>
-        <div class="stat"><div class="stat__k">Contract</div><div class="stat__v stat__v--word">Renounced</div><div class="stat__n">No owner, no mint switch.</div></div>
+        <div class="stat"><div class="stat__k">Mint authority</div><div class="stat__v stat__v--word">Revoked</div><div class="stat__n">Freeze authority too.</div></div>
       </div>
 
       <div class="buybox">
         <h3>How to buy</h3>
         <ol>
-          <li><b>Get an EVM wallet</b><span>MetaMask, Rabby or Rainbow. Seed phrase on paper, never in a chat.</span></li>
-          <li><b>Get ETH on Robinhood Chain</b><span>Bridge from Ethereum or Arbitrum, leave a little for gas.</span></li>
-          <li><b>Open the token page</b><span>Hit Buy, or paste the contract into the DEX. Check every character.</span></li>
+          <li><b>Get a Solana wallet</b><span>Phantom, Solflare or Backpack. Seed phrase on paper, never in a chat.</span></li>
+          <li><b>Fund it with SOL</b><span>Buy on any exchange, withdraw to your address, leave a little for fees.</span></li>
+          <li><b>Open the token page</b><span>Hit Buy, or paste the contract into Jupiter or pump.fun. Check every character.</span></li>
           <li><b>Swap and hold</b><span>Confirm. $TRADOOR shows up in the wallet. That is the whole flow.</span></li>
         </ol>
         <div class="ca">
           <div class="ca__label">Contract address</div>
           <button class="ca__value" type="button" data-copy title="Copy contract address">
-            <span data-ca>0xb47efcc461d3cd6b270daf15388a77a3fae64ad1</span>
+            <span data-ca>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-4M5 9h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/></svg>
           </button>
         </div>
@@ -403,41 +404,41 @@
   <div class="wrap wrap--narrow">
     <div class="sec-head">
       <span class="sec-num">05</span>
-      <h2 class="sec-title">Questions</h2>
-      <p class="sec-kicker">Short answers only</p>
+      <h2 class="sec-title">FAQ</h2>
+      <p class="sec-kicker">Frequently asked wojak</p>
     </div>
     <div class="acc">
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Is Tradoor trading real money?</span><i></i></button>
-        <div class="acc__a"><p>The market is: coins, prices, liquidity and volume all come live from the public DEX Screener API. The wallet is not — it is 1 simulated ETH, filled at real prices with slippage off the actual pool depth and every fee booked. Nobody can deposit or withdraw, and the hashes on the tape are generated for the feed, not sent to the chain.</p></div>
+        <div class="acc__a"><p>The market is: coins, prices, liquidity and volume all come live from the public DEX Screener API and the pump.fun feeds. The wallet is not — it is 10 simulated SOL, filled at real prices with slippage off the actual pool depth and every fee booked. Nobody can deposit or withdraw, and the signatures on the tape are generated for the feed, not sent to a validator.</p></div>
       </div>
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Who decides what he buys?</span><i></i></button>
-        <div class="acc__a"><p>A language model running on fal.ai. It gets the shortlist, the current positions and the free balance, and answers with a thesis plus at most two actions. Everything it proposes is then checked against a rulebook it cannot edit — position count, size cap, liquidity floor, free ETH. If the model is unavailable, the built-in scoring model takes over and the terminal says so.</p></div>
+        <div class="acc__a"><p>A language model running on fal.ai. It gets the shortlist, the current positions and the free balance, and answers with a thesis plus at most two actions. Everything it proposes is then checked against a rulebook it cannot edit — position count, size cap, liquidity floor, free SOL. If the model is unavailable, the built-in scoring model takes over and the terminal says so.</p></div>
       </div>
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>How big is a winner?</span><i></i></button>
-        <div class="acc__a"><p>Each trade is sized around 0.2 ETH and carries a target worth <b>0.04 to 0.1 ETH net of fees</b> — a real 20&ndash;50% move, not a wiggle. 35% comes off at half the target so the trade cannot turn red, most of the rest is banked at the full target, and a runner trails 10% under the high until the move dies — capped at just over double the target. Behind it all a profit lock ratchets the stop up as the high water mark climbs, and if the day is going well the next clip is sized a little bigger. Selling is decided by the exit already planned at entry, never by hope.</p></div>
+        <div class="acc__a"><p>Each trade is sized around 2 SOL — less when the pool is thin, because the clip is cut to keep slippage under 1.8% — and carries a target worth <b>0.4 to 1 SOL net of fees</b>, a real 20&ndash;50% move. 35% comes off at half the target so the trade cannot turn red, most of the rest is banked at the full target, and a runner trails 10% under the high until the move dies. Behind it all a profit lock ratchets the stop up as the high water mark climbs, and if the day is going well the next clip is sized a little bigger. Selling is decided by the exit already planned at entry, never by hope.</p></div>
+      </div>
+      <div class="acc__item">
+        <button class="acc__q" type="button" aria-expanded="false"><span>Where does the pump.fun data come from?</span><i></i></button>
+        <div class="acc__a"><p>Three public sources, none of them ours: DEX Screener for every priced pair, pump.fun&rsquo;s own API for coins still on the bonding curve, and PumpPortal&rsquo;s free event stream for the moment a coin launches or graduates onto PumpSwap. Tradoor is independent — not affiliated with pump.fun, PumpPortal, DEX Screener or Solana Labs.</p></div>
       </div>
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Are the tokens on the board a recommendation?</span><i></i></button>
-        <div class="acc__a"><p>Absolutely not. They are whatever is trending and boosted on Robinhood Chain at that minute, which is mostly noise and occasionally a rug. Nothing here is advice, a signal, or a claim about any token. Most of these will be worth nothing next week.</p></div>
+        <div class="acc__a"><p>Absolutely not. They are whatever is trending, boosted or freshly graduated on Solana at that minute, which is mostly noise and occasionally a rug. Nothing here is advice, a signal, or a claim about any token. Most of these will be worth nothing next week.</p></div>
       </div>
       <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>Is everyone watching the same wallet?</span><i></i></button>
         <div class="acc__a"><p>Yes — when the status bar says <b>ONE BOOK</b>, there is a single shared session living on the server: one wallet, one tape, one decision stream, identical on every screen, and the agent keeps trading as long as anyone has the page open. If the deployment has no store attached, the site falls back to running a private session in your browser instead, and the badge just says DEMO.</p></div>
       </div>
       <div class="acc__item">
-        <button class="acc__q" type="button" aria-expanded="false"><span>Is this a Robinhood product?</span><i></i></button>
-        <div class="acc__a"><p>No. Tradoor is an independent community project with <b>no affiliation to Robinhood Markets, Inc.</b> or the team running Robinhood Chain. The agent simply trades on the public market data of that network. Nobody at Robinhood has seen, blessed or heard of this site.</p></div>
-      </div>
-      <div class="acc__item">
         <button class="acc__q" type="button" aria-expanded="false"><span>What does $TRADOOR do?</span><i></i></button>
         <div class="acc__a"><p>It is a memecoin. No yield, no revenue share, no claim on anything the agent does. Holding it means you liked the bit. Assume it can go to zero and only spend what you are fine losing.</p></div>
       </div>
       <div class="acc__item">
-        <button class="acc__q" type="button" aria-expanded="false"><span>Why does he restart at 1 ETH every day?</span><i></i></button>
-        <div class="acc__a"><p>So the run stays honest. A number that only goes up because it has been compounding since launch tells you nothing. One day, one wallet, one flat 1 ETH — win or lose, the tape resets at 00:00 UTC and yesterday drops into the archive.</p></div>
+        <button class="acc__q" type="button" aria-expanded="false"><span>Why does he restart at 10 SOL every day?</span><i></i></button>
+        <div class="acc__a"><p>So the run stays honest. A number that only goes up because it has been compounding since launch tells you nothing. One day, one wallet, one flat 10 SOL — win or lose, the tape resets at 00:00 UTC and yesterday drops into the archive.</p></div>
       </div>
     </div>
   </div>
@@ -446,8 +447,8 @@
 <!-- ══════════════════════════════ CTA ══════════════════════════════ -->
 <section class="cta">
   <div class="wrap">
-    <p class="cta__kicker">He is still going.</p>
-    <h2 class="cta__title">One ETH. <em>No hands.</em></h2>
+    <p class="cta__kicker">He is still going. Somehow.</p>
+    <h2 class="cta__title">Ten SOL. <em>No hands.</em></h2>
     <div class="cta__row">
       <a class="btn btn--solid btn--lg buy-link" href="#token"><span>Buy $TRADOOR</span></a>
       <a class="btn btn--ghost btn--lg x-link" href="#" target="_blank" rel="noopener"><span>Follow on X</span></a>
@@ -462,8 +463,8 @@
   <div class="wrap">
     <div class="footer__top">
       <div class="footer__brand">
-        <span class="nav__mark"><img src="newlogo.jpg" alt="Tradoor" /></span>
-        <div><div class="footer__name">Tradoor</div><div class="footer__tick">$TRADOOR · Robinhood Chain</div></div>
+        <span class="nav__mark"><img src="logo.jpg" alt="Tradoor" /></span>
+        <div><div class="footer__name">Tradoor</div><div class="footer__tick">$TRADOOR · Solana</div></div>
       </div>
       <nav class="footer__nav">
         <a href="#terminal">Terminal</a>
@@ -476,13 +477,12 @@
     </div>
     <div class="footer__word" aria-hidden="true">TRADOOR</div>
     <div class="footer__bottom">
-      <p>Market data here is live from the public DEX Screener API; the wallet is a demonstration.
-      Balances, fills, positions and transaction hashes are simulated: no funds are held, moved or
-      managed, no order reaches any exchange or chain, and the figures shown are not a performance
-      record. Nothing on this page is financial advice or a recommendation to buy any token.
-      $TRADOOR is a memecoin with no expectation of profit. Tradoor is an independent community
-      project, <b>not affiliated with or endorsed by Robinhood Markets, Inc.</b> or the operators of
-      Robinhood Chain — the name is used only to identify the network the data comes from.
+      <p>Market data here is live from the public DEX Screener, pump.fun and PumpPortal feeds; the
+      wallet is a demonstration. Balances, fills, positions and transaction signatures are simulated:
+      no funds are held, moved or managed, no order reaches any exchange or validator, and the figures
+      shown are not a performance record. Nothing on this page is financial advice or a recommendation
+      to buy any token. $TRADOOR is a memecoin with no expectation of profit. Tradoor is an independent
+      community project, not affiliated with pump.fun, PumpPortal, DEX Screener or Solana Labs.
       Do your own research.</p>
       <span>&copy; <span id="year">2026</span> Tradoor</span>
     </div>
