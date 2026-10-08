@@ -92,14 +92,15 @@ var CONFIG = {
    agent will not trade it — unless it migrated within the last hour, because a fresh
    graduate's whole 1h change is its life since migration. Anything under $150K market cap is
    the **low-cap lane**: entered only with buyers in control and the 5m already moving, traded
-   on the snipe rulebook (10% clip, -9% stop, 15 min time stop) because it moves fast both ways.
+   on the snipe rulebook (10% clip, -9% stop, 12 min time stop) because it moves fast both ways.
 3. **Score** — conviction out of 100: momentum 26, trend 14, volume/LP 18, liquidity 13,
    5m buy pressure 14, token quality 15, plus a decaying freshness bonus for migrations.
 4. **Think** — top 14 plus the current book go to the model, told to hunt 20–50%
    moves rather than moonshots, and to snipe fresh migrations small and fast. Between
    model calls the built-in brain can act on its own: a high-conviction momentum entry
-   (score ≥ 74) or a **migration snipe** (graduated < 75 min ago, buyers in control) —
-   at most one entry per 40 seconds.
+   (score ≥ 68), a **migration snipe** (graduated < 75 min ago, buyers in control) or a
+   **low-cap mover** (under $150K, buyers in control, 5m already green) —
+   at most one entry per 20 seconds.
 5. **Execute** — every proposal is re-checked against the rulebook (position count, size
    cap, free SOL, liquidity floor, per-name cooldown) before it fills. Slippage comes
    off real pool depth.
@@ -107,8 +108,8 @@ var CONFIG = {
    percentage against the size actually bought. 35% off at half the target; at the full
    target 60% of the rest is banked and the runner trails 10% under the high (cut at
    2.2× the target no matter what). Stop at −11%, a scaled winner can never close red,
-   half of any open gain given back closes it, time stop at 35 minutes. Snipes run
-   tighter: 10% clips, −9% stop, 15-minute time stop.
+   half of any open gain given back closes it, time stop at 25 minutes. Snipes run
+   tighter: 10% clips, −9% stop, 12-minute time stop.
 
 Profit protection on top of the ladder:
 - **Slippage-first sizing** — on a board this small, your own impact is the whole game:
@@ -126,8 +127,8 @@ Profit protection on top of the ladder:
 - **Anti-martingale sizing** — a session up more than 10% sizes the next clip ×1.15,
   a session down more than 10% sizes it ×0.8. Never the other way around.
 
-Discipline layer: a name just closed cannot be rebought for 10 minutes (20 after a
-loss), and three full-close losses in a row park all new entries for 10 minutes.
+Discipline layer: a name just closed cannot be rebought for 6 minutes (12 after a
+loss), and four full-close losses in a row park all new entries for 6 minutes.
 
 The point is a steady stream of small realised wins rather than one big number. Note
 that the market is real: a strategy being *aimed* at consistent profit is not the same

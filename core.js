@@ -18,8 +18,8 @@
 /* --------------------------------------------------------------- rulebook */
 var RULES = {
   START_SOL:      10,
-  MAX_POS:        5,
-  MIN_SIZE_PCT:   12,
+  MAX_POS:        7,
+  MIN_SIZE_PCT:   10,
   MAX_SIZE_PCT:   25,
   MIN_LIQ_USD:    12000,
 
@@ -27,7 +27,7 @@ var RULES = {
      Traded like a snipe — small clip, tight stop, quick exit — and only
      when momentum and buyers are already there. */
   LOWCAP_USD:     150000,
-  LOWCAP_SCORE:   60,
+  LOWCAP_SCORE:   55,
 
   /* On a small-cap board your own slippage is the whole game: a 2 SOL
      clip into a $20K pool costs 6% to enter and 6% to leave, so a 25%
@@ -50,29 +50,30 @@ var RULES = {
   MAX_M5:         40,     // never buy into a vertical candle
   STOP_PCT:      -11,
   TRAIL_PCT:      10,     // trail under the high water mark once scaled
-  TIME_STOP_MIN:  35,     // dead money gets recycled
+  TIME_STOP_MIN:  25,     // dead money gets recycled
   RUG_LIQ_DROP:   0.40,
 
   /* the migration snipe: a pump.fun coin that just graduated onto PumpSwap */
   SNIPE_AGE_MIN:  75,
   SNIPE_SIZE_PCT: 10,
   SNIPE_STOP:    -9,
-  SNIPE_TIME_MIN: 15,
+  SNIPE_TIME_MIN: 12,
   SNIPE_MAX_M5:   90,
-  SNIPE_SCORE:    62,
+  SNIPE_SCORE:    56,
 
   /* discipline */
-  REBUY_COOL_MIN: 10,
-  LOSS_STREAK:    3,
-  PAUSE_MIN:      10,
-  AUTO_GAP_MS:    40000,
+  REBUY_COOL_MIN: 6,
+  LOSS_STREAK:    4,
+  PAUSE_MIN:      6,
+  AUTO_GAP_MS:    20000,
 
   SWAP_FEE:       0.01,
   NET_FEE:        0.000005,
   /* every trade pays the round trip, so a marginal setup is a guaranteed
-     small loss. The bar sits high enough that fewer, better trades happen. */
-  SCORE_BUY:      68,
-  FAST_SCORE:     74,
+     small loss. The bar is set for an active book: plenty of trades, each
+     one still sized to the pool and cut quickly when the tape turns. */
+  SCORE_BUY:      62,
+  FAST_SCORE:     68,
 
   LLM_INTERVAL_MS: 40000
 };
@@ -585,7 +586,7 @@ function autoEntries(book, ctx, ranked) {
     var r = ranked[i];
     if (entryBlock(book, r.p, ctx.now)) continue;
     if (snipeWindow(r.p) && r.s.score >= RULES.SNIPE_SCORE && r.s.pressure >= 0.52 && r.p.ch.m5 > 0) snipes.push(r);
-    else if (lowCap(r.p) && r.s.score >= RULES.LOWCAP_SCORE && r.s.pressure >= 0.55 && r.p.ch.m5 > 3) lowcaps.push(r);
+    else if (lowCap(r.p) && r.s.score >= RULES.LOWCAP_SCORE && r.s.pressure >= 0.52 && r.p.ch.m5 > 1.5) lowcaps.push(r);
     else if (r.s.score >= RULES.FAST_SCORE) strong.push(r);
   }
 
