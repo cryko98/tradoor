@@ -39,7 +39,7 @@ const SELF_TOKEN = '';
 
 const SEARCH_TERMS = ['pump', 'bonk', 'cat', 'dog', 'meme', 'moon', 'baby', 'wif'];
 
-const MIN_MCAP  = 100000;      // the board floor the site advertises
+const MIN_MCAP  = 25000;       // the board floor the site advertises
 const MAX_MCAP  = 80000000;    // above this it is not a memecoin trade any more
 const MIN_LIQ   = 8000;        // a pool this thin cannot be exited at all
 const MAX_PAIRS = 90;
@@ -230,9 +230,9 @@ function normalise(p, boosts) {
 function eligible(p) {
   if (EXCLUDE.has(p.address)) return false;
   if (SELF_TOKEN && p.address === SELF_TOKEN) return false;
-  /* fresh PumpSwap graduates arrive around $69K — the $100K floor would blind
-     the agent to the exact window it hunts, so migrations bypass it */
-  const mcapFloor = p.isMigration ? 45000 : MIN_MCAP;
+  /* fresh PumpSwap graduates can dip under the floor right after migration —
+     exactly the window the snipe lane hunts, so they get a lower one */
+  const mcapFloor = p.isMigration ? 20000 : MIN_MCAP;
   if (p.marketCap < mcapFloor || p.marketCap > MAX_MCAP) return false;
   if (p.liqUsd < MIN_LIQ) return false;
   if (!p.priceUsd) return false;

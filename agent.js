@@ -24,7 +24,7 @@ var Agent = C.newBook(Date.now(), Math.random);
 Agent.RULES = RULES;
 Agent.fmtAmt = C.fmtAmt; Agent.fmtUsd = C.fmtUsd; Agent.fmtPrice = C.fmtPrice; Agent.sgn = C.sgn;
 Agent.score = C.score;
-Agent.snipeWindow = C.snipeWindow;
+Agent.snipeWindow = C.snipeWindow; Agent.lowCap = C.lowCap; Agent.laneOf = C.laneOf;
 Agent.shared = false;
 
 function ctx() {

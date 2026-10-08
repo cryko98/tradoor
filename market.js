@@ -16,7 +16,7 @@ var SOL_MINT = 'So11111111111111111111111111111111111111112';
 var MAX_POINTS = 720;
 
 /* the board floor — same numbers the edge function uses */
-var MIN_MCAP = 100000;
+var MIN_MCAP = 25000;
 var MAX_MCAP = 80000000;
 var MIN_LIQ = 8000;
 var MAX_PAIRS = 90;
@@ -120,7 +120,7 @@ function eligible(p) {
   if (EXCLUDE[p.address]) return false;
   if (SELF_TOKEN && p.address === SELF_TOKEN) return false;
   /* fresh PumpSwap graduates arrive around $69K, under the normal floor */
-  var mcapFloor = p.isMigration ? 45000 : MIN_MCAP;
+  var mcapFloor = p.isMigration ? 20000 : MIN_MCAP;
   return p.priceUsd > 0 &&
     p.marketCap >= mcapFloor && p.marketCap <= MAX_MCAP && p.liqUsd >= MIN_LIQ;
 }

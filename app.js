@@ -346,6 +346,7 @@ function renderScan() {
     else if (watch[p.address])  { f.className = 'flag flag--watch'; f.textContent = 'watching'; }
     else if (p.liqUsd < A.RULES.MIN_LIQ_USD) { f.className = 'flag flag--rug'; f.textContent = 'thin LP'; }
     else if (p.isMigration)         { f.className = 'flag flag--new';   f.textContent = 'pumpswap'; }
+    else if (A.lowCap && A.lowCap(p) && p.ch.m5 > 3) { f.className = 'flag flag--snipe'; f.textContent = 'low cap · ' + (p.marketCap >= 1000 ? '$' + Math.round(p.marketCap / 1000) + 'K' : '$' + Math.round(p.marketCap)); }
     else if (p.ageHours !== null && p.ageHours < 1) { f.className = 'flag flag--new'; f.textContent = 'new'; }
     else if (p.ch.m5 > 3)       { f.className = 'flag flag--new';   f.textContent = 'moving'; }
     else                        { f.className = 'flag'; f.textContent = p.ch.h1 >= 0 ? 'steady' : 'bleeding'; }

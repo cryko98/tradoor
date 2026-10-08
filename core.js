@@ -21,7 +21,13 @@ var RULES = {
   MAX_POS:        5,
   MIN_SIZE_PCT:   12,
   MAX_SIZE_PCT:   25,
-  MIN_LIQ_USD:    18000,
+  MIN_LIQ_USD:    12000,
+
+  /* the low-cap lane: under this market cap a coin moves fast both ways.
+     Traded like a snipe — small clip, tight stop, quick exit — and only
+     when momentum and buyers are already there. */
+  LOWCAP_USD:     150000,
+  LOWCAP_SCORE:   60,
 
   /* On a small-cap board your own slippage is the whole game: a 2 SOL
      clip into a $20K pool costs 6% to enter and 6% to leave, so a 25%
@@ -164,9 +170,10 @@ function bootLogs(book, now) {
   log(book, now, 'boot', 'BOOT  objective — bank 0.4 to 1 SOL a trade, and let the runner stretch it. No bag-holding.', null);
   log(book, now, 'boot', 'BOOT  risk limits — max ' + RULES.MAX_POS + ' positions · stop ' + RULES.STOP_PCT +
     '% · trail ' + RULES.TRAIL_PCT + '% · liquidity floor ' + fmtUsd(RULES.MIN_LIQ_USD) +
-    ' · board floor $100K market cap', null);
-  log(book, now, 'boot', 'BOOT  snipe lane armed — pump.fun graduates get ' + RULES.SNIPE_SIZE_PCT +
-    '% clips, stop ' + RULES.SNIPE_STOP + '%, ' + RULES.SNIPE_TIME_MIN + 'm time stop', null);
+    ' · board floor $25K market cap', null);
+  log(book, now, 'boot', 'BOOT  fast lanes armed — pump.fun graduates and sub-' + fmtUsd(RULES.LOWCAP_USD) +
+    ' movers get ' + RULES.SNIPE_SIZE_PCT + '% clips, stop ' + RULES.SNIPE_STOP + '%, ' +
+    RULES.SNIPE_TIME_MIN + 'm time stop', null);
   log(book, now, 'boot', 'BOOT  scanning Solana on DEX Screener + the pump.fun launchpad · decisions by the model on fal.ai', null);
 }
 
@@ -185,6 +192,16 @@ function snipeWindow(p) {
     p.ageHours * 60 <= RULES.SNIPE_AGE_MIN;
 }
 
+/* a small cap that is not a fresh graduate — the quick-move lane */
+function lowCap(p) {
+  return p.marketCap > 0 && p.marketCap < RULES.LOWCAP_USD && !snipeWindow(p);
+}
+
+/* snipes and low caps share the fast rulebook */
+function fastLane(lane) { return lane === 'snipe' || lane === 'lowcap'; }
+function laneOf(p) { return snipeWindow(p) ? 'snipe' : lowCap(p) ? 'lowcap' : 'swing'; }
+function laneTag(lane) { return lane === 'snipe' ? ' [migration snipe]' : lane === 'lowcap' ? ' [low-cap]' : ''; }
+
 function score(p) {
   var f = {};
   var turnover = p.liqUsd > 0 ? p.vol.h1 / p.liqUsd : 0;
@@ -199,8 +216,12 @@ function score(p) {
               + (p.boosts > 0 ? 4 : 0) + (p.website ? 2 : 0)
               + (p.ageHours !== null && p.ageHours > 1 && p.ageHours < 96 ? 2 : 0);
   f.fresh = fresh ? (1 - (p.ageHours * 60) / RULES.SNIPE_AGE_MIN) * 8 : 0;
+  /* a small cap already moving with buyers behind it: the smaller, the
+     quicker — worth a nudge, never a free pass */
+  f.small = (lowCap(p) && p.ch.m5 > 3 && buyPressure(p) > 0.5)
+    ? clamp((RULES.LOWCAP_USD - p.marketCap) / RULES.LOWCAP_USD, 0, 1) * 6 : 0;
 
-  var s = f.momentum + f.trend + f.volume + f.liquidity + f.pressure + f.quality + f.fresh;
+  var s = f.momentum + f.trend + f.volume + f.liquidity + f.pressure + f.quality + f.fresh + f.small;
   var flags = [];
 
   if (p.liqUsd < RULES.MIN_LIQ_USD) { s -= 26; flags.push('liquidity ' + fmtUsd(p.liqUsd) + ' under the floor'); }
@@ -321,7 +342,7 @@ function buy(book, ctx, p, sizeEth, reason, conviction, lane) {
   var spend = sizeEth + RULES.NET_FEE + priority;
   if (spend > book.cash) return null;
 
-  var snipe = lane === 'snipe';
+  var snipe = fastLane(lane);
   var fillUsd = p.priceUsd * (1 + imp / 100);
   var tokens = toUsd(ctx, sizeEth * (1 - RULES.SWAP_FEE)) / fillUsd;
 
@@ -343,7 +364,7 @@ function buy(book, ctx, p, sizeEth, reason, conviction, lane) {
     entryMarkUsd: p.priceUsd,
     entryAt: ctx.now, peakUsd: p.priceUsd, peakPct: 0, scaled: false, trail: false,
     banked: false, liqAtEntry: p.liqUsd, reason: reason || '', conviction: conviction || 0,
-    lane: snipe ? 'snipe' : 'swing',
+    lane: lane || 'swing',
     stopPct: snipe ? RULES.SNIPE_STOP : RULES.STOP_PCT,
     timeStopMin: snipe ? RULES.SNIPE_TIME_MIN : RULES.TIME_STOP_MIN,
     exitCost: exitCost, targetPct: targetPct,
@@ -358,7 +379,7 @@ function buy(book, ctx, p, sizeEth, reason, conviction, lane) {
 
   log(book, ctx.now, 'exec', 'BUY  ' + sizeEth.toFixed(3) + ' SOL → ' + fmtAmt(tokens) + ' ' +
     p.symbol + ' @ ' + fmtPrice(fillUsd) + ' · impact ' + imp.toFixed(2) + '%', p.symbol);
-  log(book, ctx.now, 'manage', 'PLAN  ' + p.symbol + (snipe ? ' [snipe]' : '') + ' target +' +
+  log(book, ctx.now, 'manage', 'PLAN  ' + p.symbol + (lane === 'snipe' ? ' [snipe]' : lane === 'lowcap' ? ' [low-cap]' : '') + ' target +' +
     targetPct.toFixed(1) + '% ≈ +' + pos.targetSol.toFixed(3) + ' SOL net · scale ' +
     Math.round(RULES.SCALE_PORTION * 100) + '% at +' + (targetPct * RULES.SCALE_AT).toFixed(1) +
     '% · stop ' + pos.stopPct + '% · time stop ' + pos.timeStopMin + 'm', p.symbol);
@@ -516,10 +537,10 @@ function manage(book, ctx) {
 
 /* ------------------------------------------------------------- entries --- */
 function takeEntry(book, ctx, r, why, lane) {
-  var snipe = lane === 'snipe';
+  var snipe = fastLane(lane);
   var size = clipSize(book, ctx, r.p, snipe ? RULES.SNIPE_SIZE_PCT : 20);
   if (!size) return false;
-  log(book, ctx.now, 'thesis', 'THESIS ' + r.p.symbol + (snipe ? ' [migration snipe]' : '') + ' — 5m ' +
+  log(book, ctx.now, 'thesis', 'THESIS ' + r.p.symbol + laneTag(lane) + ' — 5m ' +
     sgn(r.p.ch.m5) + ' · 1h ' + sgn(r.p.ch.h1) +
     ' · LP ' + fmtUsd(r.p.liqUsd) + ' · turnover ×' + r.s.turnover.toFixed(2) +
     ' · buy pressure ' + (r.s.pressure * 100).toFixed(0) + '% → score ' +
@@ -551,7 +572,7 @@ function heuristicDecision(book, ctx, ranked) {
       }
       continue;
     }
-    takeEntry(book, ctx, r, 'momentum + liquidity filter', snipeWindow(r.p) ? 'snipe' : 'swing');
+    takeEntry(book, ctx, r, 'momentum + liquidity filter', laneOf(r.p));
     return;
   }
 }
@@ -559,12 +580,13 @@ function heuristicDecision(book, ctx, ranked) {
 function autoEntries(book, ctx, ranked) {
   if (ctx.now - book.lastAutoBuy < RULES.AUTO_GAP_MS) return;
 
-  var snipes = [], strong = [];
+  var snipes = [], lowcaps = [], strong = [];
   for (var i = 0; i < ranked.length; i++) {
     var r = ranked[i];
-    if (snipeWindow(r.p) && r.s.score >= RULES.SNIPE_SCORE && r.s.pressure >= 0.52 &&
-        r.p.ch.m5 > 0 && !entryBlock(book, r.p, ctx.now)) snipes.push(r);
-    else if (r.s.score >= RULES.FAST_SCORE && !entryBlock(book, r.p, ctx.now)) strong.push(r);
+    if (entryBlock(book, r.p, ctx.now)) continue;
+    if (snipeWindow(r.p) && r.s.score >= RULES.SNIPE_SCORE && r.s.pressure >= 0.52 && r.p.ch.m5 > 0) snipes.push(r);
+    else if (lowCap(r.p) && r.s.score >= RULES.LOWCAP_SCORE && r.s.pressure >= 0.55 && r.p.ch.m5 > 3) lowcaps.push(r);
+    else if (r.s.score >= RULES.FAST_SCORE) strong.push(r);
   }
 
   if (snipes.length) {
@@ -574,6 +596,15 @@ function autoEntries(book, ctx, ranked) {
       Math.round(s.p.ageHours * 60) + 'm ago · LP ' + fmtUsd(s.p.liqUsd) +
       ' · buys ' + s.p.txns.m5.buys + '/' + s.p.txns.m5.sells + ' on 5m', s.p.symbol);
     takeEntry(book, ctx, s, 'fresh PumpSwap migration', 'snipe');
+    return;
+  }
+  if (lowcaps.length) {
+    /* ranked is score-sorted, so the first low cap is the strongest setup */
+    var c = lowcaps[0];
+    log(book, ctx.now, 'alert', 'LOWCAP ' + c.p.symbol + ' · mcap ' + fmtUsd(c.p.marketCap) +
+      ' · 5m ' + sgn(c.p.ch.m5) + ' · buys ' + c.p.txns.m5.buys + '/' + c.p.txns.m5.sells +
+      ' · LP ' + fmtUsd(c.p.liqUsd) + ' — small clip, quick exit', c.p.symbol);
+    takeEntry(book, ctx, c, 'low-cap momentum', 'lowcap');
     return;
   }
   if (strong.length) takeEntry(book, ctx, strong[0], 'high-conviction momentum', 'swing');
@@ -606,7 +637,8 @@ function applyModelActions(book, ctx, res, ranked) {
       log(book, ctx.now, 'think', 'REJECT BUY ' + p.symbol + ' — ' + blocked, p.symbol);
       return;
     }
-    var snipe = snipeWindow(p);
+    var lane = laneOf(p);
+    var snipe = fastLane(lane);
     var pctSize = snipe
       ? Math.min(clamp(Number(a.sizePct) || RULES.SNIPE_SIZE_PCT, 8, 14), 14)
       : clamp(Number(a.sizePct) || 15, RULES.MIN_SIZE_PCT, RULES.MAX_SIZE_PCT);
@@ -617,11 +649,11 @@ function applyModelActions(book, ctx, res, ranked) {
         ' SOL free)', p.symbol);
       return;
     }
-    log(book, ctx.now, 'thesis', 'MODEL ' + p.symbol + (snipe ? ' [migration snipe]' : '') + ' — 5m ' +
+    log(book, ctx.now, 'thesis', 'MODEL ' + p.symbol + laneTag(lane) + ' — 5m ' +
       sgn(p.ch.m5) + ' · 1h ' + sgn(p.ch.h1) +
       ' · LP ' + fmtUsd(p.liqUsd) + ' · vol 1h ' + fmtUsd(p.vol.h1) +
       ' · conviction ' + (a.conviction || '?') + '/100 → ' + (a.reason || 'buy'), p.symbol);
-    buy(book, ctx, p, size, a.reason, a.conviction, snipe ? 'snipe' : 'swing');
+    buy(book, ctx, p, size, a.reason, a.conviction, lane);
     book.lastAutoBuy = ctx.now;
     acted = true;
   });
@@ -755,7 +787,7 @@ return {
   fmtAmt: fmtAmt, fmtUsd: fmtUsd, fmtPrice: fmtPrice, sgn: sgn, clamp: clamp,
   todayOf: todayOf,
   newBook: newBook, bootLogs: bootLogs, log: log,
-  buyPressure: buyPressure, snipeWindow: snipeWindow, score: score, rankPairs: rankPairs,
+  buyPressure: buyPressure, snipeWindow: snipeWindow, lowCap: lowCap, laneOf: laneOf, score: score, rankPairs: rankPairs,
   veto: veto, entryBlock: entryBlock,
   equityNow: equityNow, buy: buy, sell: sell, manage: manage,
   heuristicDecision: heuristicDecision, autoEntries: autoEntries,

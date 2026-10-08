@@ -86,11 +86,13 @@ var CONFIG = {
    searches, plus the pump.fun API (new launches, climbing the curve, freshly graduated)
    and PumpPortal's free live stream in the browser for the instant a coin graduates. Repriced every 20s in
    chunks of 30.
-2. **Filter** — the board is everything above **$100K market cap** with at least $8K of
+2. **Filter** — the board is everything above **$25K market cap** with at least $8K of
    liquidity, up to 90 names. Fresh PumpSwap graduates (pool under 3 hours old) bypass the mcap
-   floor at $45K and are ranked up. Under $18K of liquidity or already +150% on the hour, the
+   floor at $20K and are ranked up. Under $12K of liquidity or already +150% on the hour, the
    agent will not trade it — unless it migrated within the last hour, because a fresh
-   graduate's whole 1h change is its life since migration.
+   graduate's whole 1h change is its life since migration. Anything under $150K market cap is
+   the **low-cap lane**: entered only with buyers in control and the 5m already moving, traded
+   on the snipe rulebook (10% clip, -9% stop, 15 min time stop) because it moves fast both ways.
 3. **Score** — conviction out of 100: momentum 26, trend 14, volume/LP 18, liquidity 13,
    5m buy pressure 14, token quality 15, plus a decaying freshness bonus for migrations.
 4. **Think** — top 14 plus the current book go to the model, told to hunt 20–50%
