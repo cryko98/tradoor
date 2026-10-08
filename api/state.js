@@ -143,13 +143,27 @@ async function runTick(env, book, now) {
             ranked.length + ' pairs scored · leader ' + (ranked[0] ? ranked[0].p.symbol : '—'), null);
         }
       } else {
-        if (res && res.reason === 'no-key' && !book.warnedNoKey) {
-          book.warnedNoKey = true;
-          core.log(book, now, 'boot', 'NOTE  no FAL_KEY on this deployment — running the built-in scoring model instead', null);
+        /* say why the model is not driving, once per distinct reason, so a
+           broken key or a rejected request shows up on the tape instead of
+           silently looking like "the agent chose the heuristic" */
+        const why = (res && res.reason) || 'unknown';
+        book.warned = book.warned || {};
+        if (!book.warned[why]) {
+          book.warned[why] = true;
+          const detail = res && (res.error || res.raw) ? ' (' + String(res.error || res.raw).slice(0, 140) + ')' : '';
+          core.log(book, now, 'boot', why === 'no-key'
+            ? 'NOTE  no FAL_KEY on this deployment — running the built-in scoring model instead'
+            : 'NOTE  model call failed: ' + why + detail + ' — built-in scoring model is driving', null);
         }
         core.heuristicDecision(book, ctx, ranked);
       }
     } catch (e) {
+      book.warned = book.warned || {};
+      if (!book.warned.exception) {
+        book.warned.exception = true;
+        core.log(book, now, 'boot', 'NOTE  model call threw: ' + String(e && e.message || e).slice(0, 140) +
+          ' — built-in scoring model is driving', null);
+      }
       core.heuristicDecision(book, ctx, ranked);
     }
     book.brainState = now < book.pausedUntil ? 'cooling off'
